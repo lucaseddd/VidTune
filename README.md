@@ -1,12 +1,12 @@
 # VidTune
 
-**VidTune — Speed, Volume & PiP** is a lightweight browser extension under development. Version 0.2.0 adds video speed control to the existing popup and detection foundation. Volume and Picture in Picture are planned for later milestones.
+**VidTune — Speed, Volume & PiP** is a lightweight browser extension under development. Version 0.2.1 adds video speed control to the existing popup and detection foundation. Volume and Picture in Picture are planned for later milestones.
 
 ## Speed controls
 
 - Adjust in 0.25× steps, choose a preset, enter a custom value, or reset to 1×.
 - Supported range: 0.1× to 16×. The selected speed is saved locally.
-- Shortcuts: **Alt+Shift+U** increase, **Alt+Shift+J** decrease, **Alt+Shift+R** reset. Browser shortcut conflicts can be changed through the browser's extension shortcut settings.
+- Shortcuts: **Ctrl+Shift+Up** increase, **Ctrl+Shift+Down** decrease, **Ctrl+Shift+0** reset. Browser shortcut conflicts can be changed through the browser's extension shortcut settings.
 - The active video is chosen by playback state and visible size. When a site replaces a video without navigating, VidTune applies the saved speed to the replacement.
 - **Detect videos** controls automatic scanning when the popup opens. Speed controls remain available when automatic scanning is off.
 

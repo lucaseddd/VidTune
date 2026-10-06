@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "VidTune — Speed, Volume & PiP",
   "short_name": "VidTune",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Lightweight video speed controls with presets and shortcuts.",
   "action": {
     "default_title": "VidTune",
@@ -15,9 +15,9 @@
     "type": "module"
   },
   "commands": {
-    "speed-up": { "suggested_key": { "default": "Alt+Shift+U" }, "description": "Increase video speed" },
-    "speed-down": { "suggested_key": { "default": "Alt+Shift+J" }, "description": "Decrease video speed" },
-    "speed-reset": { "suggested_key": { "default": "Alt+Shift+R" }, "description": "Reset video speed" }
+    "speed-up": { "suggested_key": { "default": "Ctrl+Shift+Up" }, "description": "Increase video speed" },
+    "speed-down": { "suggested_key": { "default": "Ctrl+Shift+Down" }, "description": "Decrease video speed" },
+    "speed-reset": { "suggested_key": { "default": "Ctrl+Shift+0" }, "description": "Reset video speed" }
   },
   "browser_specific_settings": {
     "gecko": {

@@ -2,9 +2,9 @@
 
 ## Current checkpoint
 
-- Version: 0.2.0
+- Version: 0.2.1
 - Phase: 2 — Speed Control
-- Status: v0.2.0 checkpoint complete; waiting for user testing before Phase 3
+- Status: v0.2.1 shortcut correction complete; waiting for user testing before Phase 3
 
 ## Completed
 
@@ -16,6 +16,7 @@
 - Permission and privacy documentation
 - Speed control from 0.1× to 16× with 0.25× steps, presets, custom entry, reset and saved preference
 - Three browser shortcuts for increase, decrease and reset
+- Firefox menu conflict corrected by using Ctrl+Shift+Up, Ctrl+Shift+Down and Ctrl+Shift+0
 - Main-video selection by playback state and visible size; dynamic replacement handling
 - Separate Firefox and Chromium manifests from one shared codebase
 
@@ -39,9 +40,9 @@
 - Build and local lint passed; all 6 automated tests passed, covering speed math, settings, video selection, dynamic replacement and observer teardown.
 - Mozilla `web-ext lint` passed with no errors or warnings. Both browser packages were generated.
 - Firefox WebDriver installed the extension temporarily and verified popup rendering, registered shortcut definitions, 0.1× and 16×, dynamic video replacement, local persistence and reset on an HTML5 video test page.
-- The final Firefox development window loaded the v0.2.0 build for manual testing. Firefox and Chromium ZIP packages are about 9 KB each. At 1×, the controller has no mutation observer or video lifecycle listeners.
-- The v0.2.0 code and tag were pushed to the private `origin` repository.
+- A Firefox development window loaded the v0.2.1 build for manual testing. At 1×, the controller has no mutation observer or video lifecycle listeners.
+- The v0.2.1 code and tag were pushed to the private `origin` repository.
 
 ## Next milestone
 
-Phase 3 — Advanced Speed & Shortcuts, only after explicit user approval following the v0.2.0 checkpoint.
+Phase 3 — Advanced Speed & Shortcuts, only after explicit user approval following the v0.2.1 checkpoint.

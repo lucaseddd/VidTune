@@ -40,7 +40,16 @@ try {
   await driver.get(`moz-extension://${uuid}/popup.html`);
   if (!(await driver.findElement({ id: 'speed-value' }).isDisplayed())) throw new Error('Popup speed control did not render');
   const shortcuts = await driver.executeAsyncScript('browser.commands.getAll().then(arguments[arguments.length - 1]);');
-  if (shortcuts.length !== 3) throw new Error('Speed shortcuts were not registered');
+  const expectedShortcuts = {
+    'speed-up': 'Ctrl+Shift+Up',
+    'speed-down': 'Ctrl+Shift+Down',
+    'speed-reset': 'Ctrl+Shift+0',
+  };
+  for (const [name, shortcut] of Object.entries(expectedShortcuts)) {
+    if (shortcuts.find((command) => command.name === name)?.shortcut !== shortcut) {
+      throw new Error(`${name} shortcut was not registered as ${shortcut}: ${JSON.stringify(shortcuts)}`);
+    }
+  }
 
   async function control(message) {
     const result = await driver.executeAsyncScript(`
