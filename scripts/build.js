@@ -15,7 +15,7 @@ for (const [name, browser] of [['dist', 'firefox'], ['dist-chromium', 'chromium'
   if (relativeOutput.startsWith('..') || isAbsolute(relativeOutput)) throw new Error('Unsafe build output path');
   await rm(output, { recursive: true, force: true });
   await mkdir(output, { recursive: true });
-  for (const path of ['popup.html', 'src', 'styles']) {
+  for (const path of ['popup.html', 'options.html', 'src', 'styles']) {
     await cp(new URL(`../${path}`, import.meta.url), join(outputPath, path), { recursive: true });
   }
   const specific = structuredClone(manifest);

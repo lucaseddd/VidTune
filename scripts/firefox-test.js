@@ -9,6 +9,20 @@ process.env.SE_AVOID_STATS = 'true';
 await mkdir(process.env.SE_CACHE_PATH, { recursive: true });
 
 const html = '<!doctype html><title>VidTune Firefox test</title><body tabindex="0"><input id="typing"><video id="main" width="640" height="360" controls></video>';
+const wav = Buffer.alloc(44 + 48000, 128);
+wav.write('RIFF', 0);
+wav.writeUInt32LE(wav.length - 8, 4);
+wav.write('WAVEfmt ', 8);
+wav.writeUInt32LE(16, 16);
+wav.writeUInt16LE(1, 20);
+wav.writeUInt16LE(1, 22);
+wav.writeUInt32LE(8000, 24);
+wav.writeUInt32LE(8000, 28);
+wav.writeUInt16LE(1, 32);
+wav.writeUInt16LE(8, 34);
+wav.write('data', 36);
+wav.writeUInt32LE(48000, 40);
+const wavUrl = `data:audio/wav;base64,${wav.toString('base64')}`;
 const server = createServer((_request, response) => {
   response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
   response.end(html);
@@ -110,7 +124,54 @@ try {
     5000, 'Video speed indicator did not follow player pointer activity');
   await driver.wait(async () => (await indicator.getCssValue('opacity')) === '0',
     5000, 'Video speed indicator did not hide when player activity stopped');
-  console.log('Firefox passed: popup and page shortcuts, 0.1× repeated steps, spinner, video indicator, dynamic replacement, persistence and reset.');
+
+  await driver.switchTo().window(extensionHandle);
+  await driver.findElement({ id: 'open-settings' }).click();
+  await driver.wait(async () => (await driver.getAllWindowHandles()).length === 3, 5000, 'Settings tab did not open');
+  const optionsHandle = (await driver.getAllWindowHandles()).find((handle) => ![pageHandle, extensionHandle].includes(handle));
+  await driver.switchTo().window(optionsHandle);
+  await driver.wait(async () => (await driver.findElement({ id: 'site-name' }).getText()) === '127.0.0.1',
+    5000, 'Settings page did not identify the video site');
+  await driver.executeScript("document.getElementById('key-increase').value = 'KeyA'");
+  await driver.findElement({ css: '#settings-form button[type="submit"]' }).click();
+  await driver.wait(async () => (await driver.findElement({ id: 'feedback' }).getText()).includes('different letter'),
+    5000, 'Duplicate shortcut was not rejected');
+  await driver.executeScript(`
+    document.getElementById('speed-step').value = '0.2';
+    document.getElementById('presets').value = '0.5, 1, 1.25';
+    document.getElementById('seek-enabled').checked = true;
+    document.getElementById('seek-seconds').value = '2';
+    document.getElementById('key-decrease').value = 'KeyC';
+    document.getElementById('key-increase').value = 'KeyV';
+    document.getElementById('key-seek-backward').value = 'KeyZ';
+    document.getElementById('key-seek-forward').value = 'KeyX';
+    document.getElementById('site-enabled').checked = true;
+    document.getElementById('site-speed').value = '1.5';
+  `);
+  await driver.findElement({ css: '#settings-form button[type="submit"]' }).click();
+  await driver.wait(async () => (await driver.findElement({ id: 'feedback' }).getText()) === 'Settings saved.',
+    5000, 'Advanced settings were not saved');
+  await driver.switchTo().window(pageHandle);
+  await waitForRate('replacement', 1.5);
+  await driver.executeScript(`
+    const video = document.getElementById('replacement');
+    video.src = arguments[0];
+    document.body.focus();
+  `, wavUrl);
+  await driver.wait(async () => await driver.executeScript("const v = document.getElementById('replacement'); return v.readyState >= 1 && v.seekable.length > 0"),
+    5000, 'Local media fixture was not seekable');
+  await driver.executeScript("document.getElementById('replacement').currentTime = 1");
+  await driver.findElement({ css: 'body' }).sendKeys('x');
+  await driver.wait(async () => Math.abs((await driver.executeScript("return document.getElementById('replacement').currentTime")) - 3) < 0.05,
+    5000, 'Configured forward skip did not work');
+  await driver.findElement({ css: 'body' }).sendKeys('z');
+  await driver.wait(async () => Math.abs((await driver.executeScript("return document.getElementById('replacement').currentTime")) - 1) < 0.05,
+    5000, 'Configured backward skip did not work');
+  await driver.findElement({ css: 'body' }).sendKeys('v');
+  await waitForRate('replacement', 1.7);
+  await driver.navigate().refresh();
+  await waitForRate('main', 1.7);
+  console.log('Firefox passed: settings page, configurable keys and step, optional seek, site speed on reload, popup controls, indicator and persistence.');
 } finally {
   if (driver) await driver.quit();
   await new Promise((done) => server.close(done));

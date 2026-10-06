@@ -6,8 +6,11 @@
   const api = globalThis.browser ?? globalThis.chrome;
   const MIN = 0.1;
   const MAX = 16;
-  const STEP = 0.1;
+  const siteHost = globalThis.location?.hostname ?? '';
   let desiredSpeed = 1;
+  let hasSiteProfile = false;
+  let speedStep = 0.1;
+  let seekSeconds = 10;
   let lastActiveVideo = null;
   let observer = null;
   let scanQueued = false;
@@ -171,13 +174,13 @@
   }
 
   function updateMonitoring() {
-    if (desiredSpeed !== 1 && !observer) {
+    if ((desiredSpeed !== 1 || hasSiteProfile) && !observer) {
       document.addEventListener('play', onMediaEvent, true);
       document.addEventListener('loadedmetadata', onMediaEvent, true);
       document.addEventListener('loadstart', onMediaEvent, true);
       observer = new MutationObserver(onMutations);
       observer.observe(document.documentElement, { childList: true, subtree: true });
-    } else if (desiredSpeed === 1 && observer) {
+    } else if (desiredSpeed === 1 && !hasSiteProfile && observer) {
       observer.disconnect();
       observer = null;
       lastActiveVideo = null;
@@ -204,26 +207,60 @@
     applyToMain();
     flashIndicator();
     const { settings } = await api.storage.local.get('settings');
-    await api.storage.local.set({ settings: { ...settings, speed: desiredSpeed } });
+    const siteSpeeds = settings?.siteSpeeds ?? {};
+    const updated = Object.hasOwn(siteSpeeds, siteHost)
+      ? { ...settings, siteSpeeds: { ...siteSpeeds, [siteHost]: desiredSpeed } }
+      : { ...settings, speed: desiredSpeed };
+    await api.storage.local.set({ settings: updated });
+    return state();
+  }
+
+  function seek(direction) {
+    const video = mainVideo();
+    if (!video || !Number.isFinite(video.currentTime)) return state();
+    const ranges = video.seekable;
+    let start = 0;
+    let end = Number.isFinite(video.duration) ? video.duration : null;
+    if (ranges?.length) {
+      const index = [...Array(ranges.length).keys()].find((i) =>
+        video.currentTime >= ranges.start(i) && video.currentTime <= ranges.end(i));
+      if (index != null) { start = ranges.start(index); end = ranges.end(index); }
+    }
+    if (end == null || end <= start) return state();
+    video.currentTime = Math.max(start, Math.min(end, video.currentTime + direction * seekSeconds));
     return state();
   }
 
   const ready = api.storage.local.get('settings').then(({ settings }) => {
-    desiredSpeed = normalize(settings?.speed);
+    hasSiteProfile = Object.hasOwn(settings?.siteSpeeds ?? {}, siteHost);
+    desiredSpeed = normalize(settings?.siteSpeeds?.[siteHost] ?? settings?.speed);
+    speedStep = Number(settings?.speedStep) || 0.1;
+    seekSeconds = Number(settings?.seekSeconds) || 10;
     updateMonitoring();
-    if (desiredSpeed !== 1) applyToMain();
+    if (desiredSpeed !== 1 || hasSiteProfile) applyToMain();
+  });
+
+  api.storage.onChanged?.addListener((changes, area) => {
+    if (area !== 'local' || !changes.settings) return;
+    const settings = changes.settings.newValue;
+    speedStep = Number(settings?.speedStep) || 0.1;
+    seekSeconds = Number(settings?.seekSeconds) || 10;
+    hasSiteProfile = Object.hasOwn(settings?.siteSpeeds ?? {}, siteHost);
+    updateMonitoring();
   });
 
   let pending = ready;
   api.runtime.onMessage.addListener((message, _sender, respond) => {
-    if (!['GET_STATE', 'SET_SPEED', 'INCREASE', 'DECREASE', 'RESET'].includes(message?.type)) return;
+    if (!['GET_STATE', 'SET_SPEED', 'INCREASE', 'DECREASE', 'RESET', 'SEEK_BACKWARD', 'SEEK_FORWARD'].includes(message?.type)) return;
     pending = pending.then(async () => {
       const current = state().speed;
       switch (message.type) {
         case 'SET_SPEED': return setSpeed(message.speed);
-        case 'INCREASE': return setSpeed(current + STEP);
-        case 'DECREASE': return setSpeed(current - STEP);
+        case 'INCREASE': return setSpeed(current + speedStep);
+        case 'DECREASE': return setSpeed(current - speedStep);
         case 'RESET': return setSpeed(1);
+        case 'SEEK_BACKWARD': return seek(-1);
+        case 'SEEK_FORWARD': return seek(1);
         default: return state();
       }
     });

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>VidTune Settings</title>
+  <link rel="stylesheet" href="styles/options.css">
+</head>
+<body>
+  <main>
+    <header><div class="mark" aria-hidden="true">▶</div><div><p class="eyebrow">VidTune</p><h1>Settings</h1><p class="intro">Keep the player controls simple. Tune the details here.</p></div></header>
+    <form id="settings-form" novalidate>
+      <section aria-labelledby="speed-title">
+        <h2 id="speed-title">Speed</h2>
+        <p class="hint">Choose how much each press of the speed keys or popup buttons changes playback.</p>
+        <label class="field">Speed step <input id="speed-step" type="number" min="0.01" max="2" step="0.01" required><span>× per press</span></label>
+        <label class="stacked">Presets <input id="presets" type="text" spellcheck="false" aria-describedby="presets-help"><small id="presets-help">Enter 3–8 speeds separated by commas, from 0.1× to 16×.</small></label>
+        <label class="switch detect-toggle"><input id="auto-detect" type="checkbox"> Detect videos when opening the popup</label>
+      </section>
+      <section aria-labelledby="shortcuts-title">
+        <h2 id="shortcuts-title">Keyboard shortcuts</h2>
+        <p class="hint">Single letters work on pages with video and while the VidTune popup has focus. They do not run while you type in a field.</p>
+        <div class="shortcut-grid">
+          <label>Slower <select id="key-decrease"></select></label>
+          <label>Faster <select id="key-increase"></select></label>
+          <label>Reset to 1× <select id="key-reset"></select></label>
+        </div>
+      </section>
+      <section aria-labelledby="seek-title">
+        <div class="section-heading"><div><h2 id="seek-title">Skip backward and forward</h2><p class="hint">Optional keyboard controls. No extra buttons appear in the popup.</p></div><label class="switch"><input id="seek-enabled" type="checkbox"> Enable</label></div>
+        <label class="field">Jump length <input id="seek-seconds" type="number" min="1" max="60" step="1" required><span>seconds</span></label>
+        <div class="shortcut-grid two">
+          <label>Backward <select id="key-seek-backward"></select></label>
+          <label>Forward <select id="key-seek-forward"></select></label>
+        </div>
+        <p class="hint bottom">Choose two unused letters before enabling. VidTune skips only within the video's seekable range.</p>
+      </section>
+      <section aria-labelledby="site-title">
+        <h2 id="site-title">This site</h2>
+        <p class="hint" id="site-name">Checking the active tab…</p>
+        <label class="switch site-toggle"><input id="site-enabled" type="checkbox"> Remember a speed for this site</label>
+        <label class="field">Site speed <input id="site-speed" type="number" min="0.1" max="16" step="0.01"><span>×</span></label>
+      </section>
+      <div class="actions"><p id="feedback" role="status" aria-live="polite"></p><button type="submit">Save settings</button></div>
+    </form>
+  </main>
+  <script type="module" src="src/options.js"></script>
+</body>
+</html>

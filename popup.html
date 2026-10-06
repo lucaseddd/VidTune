@@ -9,7 +9,7 @@
 </head>
 <body>
   <main class="shell">
-    <header class="brand"><span class="brand-mark" aria-hidden="true">▶</span><div><strong>VidTune</strong><small>Video, your way</small></div><span class="version">v0.2.3</span></header>
+    <header class="brand"><span class="brand-mark" aria-hidden="true">▶</span><div><strong>VidTune</strong><small>Video, your way</small></div><button id="open-settings" class="settings-link" type="button" aria-label="Open settings" title="Settings">⚙</button><span class="version">v0.3.0</span></header>
     <section class="card speed-card" aria-labelledby="speed-heading">
       <div class="card-heading"><h1 id="speed-heading">Speed</h1><span id="speed-note" class="status">Ready</span></div>
       <div class="speed-control">
@@ -37,10 +37,6 @@
       <p id="site" class="site">—</p>
       <p id="video-summary" class="summary" role="status" aria-live="polite">Looking for videos…</p>
       <button id="refresh" type="button" class="secondary">Scan again</button>
-    </section>
-    <section class="card" aria-labelledby="settings-heading">
-      <h2 id="settings-heading">Preferences</h2>
-      <label class="toggle-row" for="auto-detect"><span><strong>Detect videos</strong><small>Scan when you open VidTune</small></span><input id="auto-detect" type="checkbox"></label>
     </section>
     <p class="footnote">Video shortcuts: A slower · D faster · Q reset</p>
   </main>

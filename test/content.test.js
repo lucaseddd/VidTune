@@ -8,13 +8,14 @@ const source = await readFile(new URL('../src/content.js', import.meta.url), 'ut
 function fakeVideo({ playing = false, width = 640, height = 360 } = {}) {
   return {
     nodeType: 1, localName: 'video', isConnected: true,
-    paused: !playing, ended: false, playbackRate: 1,
+    paused: !playing, ended: false, playbackRate: 1, currentTime: 50, duration: 120,
+    seekable: { length: 1, start: () => 0, end: () => 120 },
     getBoundingClientRect: () => ({ width, height })
   };
 }
 
-function fixture(initialSpeed, initialVideos) {
-  const page = { videos: initialVideos, listeners: new Map(), observer: null, settings: { speed: initialSpeed, autoDetect: true } };
+function fixture(initialSpeed, initialVideos, extraSettings = {}) {
+  const page = { videos: initialVideos, listeners: new Map(), observer: null, settings: { speed: initialSpeed, autoDetect: true, ...extraSettings } };
   let onMessage;
   class Observer {
     constructor(callback) { this.callback = callback; page.observer = this; }
@@ -34,7 +35,7 @@ function fixture(initialSpeed, initialVideos) {
     } },
     runtime: { onMessage: { addListener(listener) { onMessage = listener; } } }
   };
-  const context = { browser, document, MutationObserver: Observer, queueMicrotask };
+  const context = { browser, document, MutationObserver: Observer, queueMicrotask, location: { hostname: 'example.com' } };
   runInNewContext(source, context);
   page.send = (message) => new Promise((resolve) => { assert.equal(onMessage(message, {}, resolve), true); });
   return page;
@@ -83,4 +84,34 @@ test('repeated speed messages apply each 0.1× step in order', async () => {
   assert.deepEqual(changes.map(({ speed }) => speed), [1.1, 1.2, 1.3]);
   assert.equal(video.playbackRate, 1.3);
   assert.equal(page.settings.speed, 1.3);
+});
+
+test('custom speed step, site profile and seek range are applied', async () => {
+  const video = fakeVideo({ playing: true });
+  const page = fixture(1, [video], { speedStep: 0.2, seekSeconds: 15, siteSpeeds: { 'example.com': 1.5 } });
+  assert.equal((await page.send({ type: 'GET_STATE' })).speed, 1.5);
+  assert.equal((await page.send({ type: 'INCREASE' })).speed, 1.7);
+  assert.equal(page.settings.siteSpeeds['example.com'], 1.7);
+  assert.equal(page.settings.speed, 1);
+  await page.send({ type: 'SEEK_FORWARD' });
+  assert.equal(video.currentTime, 65);
+  await page.send({ type: 'SEEK_BACKWARD' });
+  assert.equal(video.currentTime, 50);
+  video.currentTime = 118;
+  await page.send({ type: 'SEEK_FORWARD' });
+  assert.equal(video.currentTime, 120);
+});
+
+test('a 1× site profile keeps dynamically added videos at 1×', async () => {
+  const first = fakeVideo();
+  const page = fixture(1.5, [first], { siteSpeeds: { 'example.com': 1 } });
+  await page.send({ type: 'GET_STATE' });
+  assert.equal(page.observer.active, true);
+  const replacement = fakeVideo();
+  replacement.playbackRate = 2;
+  first.isConnected = false;
+  page.videos = [replacement];
+  page.observer.callback([{ addedNodes: [replacement], removedNodes: [first] }]);
+  await new Promise(queueMicrotask);
+  assert.equal(replacement.playbackRate, 1);
 });

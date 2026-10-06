@@ -1,6 +1,6 @@
-import { activeTab, sendToVideo } from './browser.js';
+import { activeTab, browserApi, sendToVideo } from './browser.js';
 import { summarizeVideos } from './detection.js';
-import { loadSettings, updateSettings } from './settings.js';
+import { loadSettings } from './settings.js';
 import { formatSpeed, normalizeSpeed } from './speed.js';
 
 const site = document.querySelector('#site');
@@ -9,10 +9,20 @@ const status = document.querySelector('#status');
 const speedNote = document.querySelector('#speed-note');
 const speedValue = document.querySelector('#speed-value');
 const manualValue = document.querySelector('#manual-value');
-const toggle = document.querySelector('#auto-detect');
 const refresh = document.querySelector('#refresh');
-const speedButtons = [...document.querySelectorAll('.speed-card button')];
 let currentTab = null;
+let shortcuts = { decrease: 'KeyA', increase: 'KeyD', reset: 'KeyQ', seekBackward: null, seekForward: null };
+let seekEnabled = false;
+
+function renderPresets(presets) {
+  document.querySelector('#presets').replaceChildren(...presets.map((speed) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.speed = String(speed);
+    button.textContent = formatSpeed(speed);
+    return button;
+  }));
+}
 
 function setStatus(text, kind = '') {
   status.textContent = text;
@@ -49,7 +59,7 @@ async function scan() {
 
 async function control(message) {
   if (!currentTab?.id) return;
-  for (const button of speedButtons) button.disabled = true;
+  for (const button of document.querySelectorAll('.speed-card button')) button.disabled = true;
   try {
     const state = await sendToVideo(currentTab.id, message);
     renderVideoState(state);
@@ -57,14 +67,18 @@ async function control(message) {
   } catch {
     setStatus('Speed unavailable here', 'error');
   } finally {
-    for (const button of speedButtons) button.disabled = false;
+    for (const button of document.querySelectorAll('.speed-card button')) button.disabled = false;
   }
 }
 
 async function initialize() {
   try {
     const [settings, tab] = await Promise.all([loadSettings(), activeTab()]);
-    toggle.checked = settings.autoDetect;
+    shortcuts = settings.shortcuts;
+    seekEnabled = settings.seekEnabled;
+    manualValue.step = String(settings.speedStep);
+    renderPresets(settings.presets);
+    document.querySelector('.footnote').textContent = `Video shortcuts: ${shortcuts.decrease?.slice(3) ?? '—'} slower · ${shortcuts.increase?.slice(3) ?? '—'} faster · ${shortcuts.reset?.slice(3) ?? '—'} reset`;
     renderSpeed(settings.speed);
     currentTab = tab;
     if (!tab) {
@@ -85,6 +99,7 @@ async function initialize() {
 }
 
 refresh.addEventListener('click', scan);
+document.querySelector('#open-settings').addEventListener('click', () => browserApi().runtime.openOptionsPage());
 document.querySelector('#increase').addEventListener('click', () => control({ type: 'INCREASE' }));
 document.querySelector('#decrease').addEventListener('click', () => control({ type: 'DECREASE' }));
 document.querySelector('#reset').addEventListener('click', () => control({ type: 'RESET' }));
@@ -101,22 +116,16 @@ document.querySelector('#manual-speed').addEventListener('submit', (event) => {
   }
   control({ type: 'SET_SPEED', speed });
 });
-toggle.addEventListener('change', async () => {
-  try {
-    await updateSettings({ autoDetect: toggle.checked });
-    if (toggle.checked) await scan();
-    else { summary.textContent = 'Automatic scanning is off.'; setStatus('Paused'); }
-  } catch {
-    toggle.checked = !toggle.checked;
-    setStatus('Could not save', 'error');
-  }
-});
-
 document.addEventListener('keydown', (event) => {
   if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
   if (event.composedPath().some((element) => element?.closest?.('input, textarea, select, [contenteditable], [role="textbox"]'))) return;
-  const action = { KeyA: 'DECREASE', KeyD: 'INCREASE', KeyQ: 'RESET' }[event.code];
-  if (!action || (action === 'RESET' && event.repeat)) return;
+  const name = Object.keys(shortcuts).find((key) => shortcuts[key] === event.code);
+  if (!name || (name.startsWith('seek') && !seekEnabled)) return;
+  const action = {
+    decrease: 'DECREASE', increase: 'INCREASE', reset: 'RESET',
+    seekBackward: 'SEEK_BACKWARD', seekForward: 'SEEK_FORWARD'
+  }[name];
+  if (event.repeat && !['INCREASE', 'DECREASE'].includes(action)) return;
   event.preventDefault();
   control({ type: action });
 }, true);
