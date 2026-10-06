@@ -4,7 +4,7 @@
 
 - Version: 0.1.0
 - Phase: 1 — Project Foundation
-- Status: implementation complete; Firefox development build loaded; private GitHub repository created; Git checkpoint in progress
+- Status: v0.1.0 checkpoint complete; waiting for user testing before Phase 2
 
 ## Completed
 
@@ -31,7 +31,7 @@
 - Build and local lint passed; all 3 automated tests passed.
 - Mozilla `web-ext lint` passed with 0 errors, 0 warnings and 0 notices. Packaged ZIP verified.
 - `web-ext run` reported successful temporary installation in a Firefox development window, opening the MDN video documentation. Popup interactions could not be inspected because Windows browser automation was stopped by URL policy enforcement.
-- The user created `lucaseddd/VidTune` as a private GitHub repository after automatic approval review declined the UI creation step. Local commit, tag and push are in progress.
+- The user created `lucaseddd/VidTune` as a private GitHub repository. Commit `c6ef9c1` and tag `v0.1.0` were pushed to `origin`.
 
 ## Next milestone
 
