@@ -9,7 +9,7 @@
 </head>
 <body>
   <main class="shell">
-    <header class="brand"><span class="brand-mark" aria-hidden="true">▶</span><div><strong>VidTune</strong><small>Video, your way</small></div><span class="version">v0.2.2</span></header>
+    <header class="brand"><span class="brand-mark" aria-hidden="true">▶</span><div><strong>VidTune</strong><small>Video, your way</small></div><span class="version">v0.2.3</span></header>
     <section class="card speed-card" aria-labelledby="speed-heading">
       <div class="card-heading"><h1 id="speed-heading">Speed</h1><span id="speed-note" class="status">Ready</span></div>
       <div class="speed-control">
@@ -25,9 +25,9 @@
         <button type="button" data-speed="3">3×</button>
         <button type="button" data-speed="4">4×</button>
       </div>
-      <form id="manual-speed" class="manual-row">
+      <form id="manual-speed" class="manual-row" novalidate>
         <label for="manual-value">Custom</label>
-        <input id="manual-value" type="number" min="0.1" max="16" step="0.01" inputmode="decimal" aria-describedby="speed-range" required>
+        <input id="manual-value" type="number" min="0.1" max="16" step="0.1" inputmode="decimal" aria-describedby="speed-range" required>
         <button type="submit" class="secondary">Apply</button>
       </form>
       <div class="speed-footer"><span id="speed-range">0.1×–16×</span><button id="reset" type="button" class="text-button">Reset to 1×</button></div>

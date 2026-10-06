@@ -5,7 +5,13 @@ export function browserApi() {
 }
 
 export async function activeTab() {
-  const [tab] = await browserApi().tabs.query({ active: true, currentWindow: true });
+  const api = browserApi();
+  const [tab] = await api.tabs.query({ active: true, currentWindow: true });
+  if (tab?.url?.startsWith(api.runtime.getURL(''))) {
+    const tabs = await api.tabs.query({ currentWindow: true });
+    return tabs.filter((candidate) => /^https?:/.test(candidate.url ?? ''))
+      .sort((a, b) => (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0))[0] ?? tab;
+  }
   return tab ?? null;
 }
 

@@ -31,6 +31,10 @@ try {
   const extensionHandle = await driver.getWindowHandle();
   await driver.get(`moz-extension://${uuid}/popup.html`);
   if (!(await driver.findElement({ id: 'speed-value' }).isDisplayed())) throw new Error('Popup speed control did not render');
+  await driver.wait(async () => (await driver.findElement({ id: 'video-summary' }).getText()) === '1 video found',
+    5000, 'Extension tab did not locate the video tab');
+  const spinnerStep = await driver.executeScript("const input = document.getElementById('manual-value'); input.stepUp(); return input.value;");
+  if (spinnerStep !== '1.1') throw new Error(`Manual spinner used the wrong step: ${spinnerStep}`);
 
   async function control(message) {
     const result = await driver.executeAsyncScript(`
@@ -90,7 +94,23 @@ try {
   await waitForRate('replacement', 1.3);
   await driver.findElement({ css: 'body' }).sendKeys('q');
   await waitForRate('replacement', 1);
-  console.log('Firefox passed: temporary install, popup page, A/D/Q key dispatch, 0.1× repeated steps, dynamic video replacement, persistence and reset.');
+  await driver.switchTo().window(extensionHandle);
+  await driver.findElement({ css: 'body' }).sendKeys('d');
+  await driver.wait(async () => (await driver.findElement({ id: 'speed-value' }).getText()) === '1.1×',
+    5000, 'Popup keyboard shortcut did not update its speed display');
+  await driver.switchTo().window(pageHandle);
+  await waitForRate('replacement', 1.1);
+  const indicator = await driver.findElement({ id: 'vidtune-speed-indicator' });
+  if (await indicator.getText() !== '1.10×') throw new Error('Video speed indicator showed the wrong value');
+  if (await indicator.getCssValue('pointer-events') !== 'none') throw new Error('Video speed indicator blocked player input');
+  await driver.wait(async () => (await driver.executeScript("return getComputedStyle(document.getElementById('vidtune-speed-indicator')).opacity")) === '0',
+    5000, 'Video speed indicator did not fade after the speed change');
+  await driver.actions().move({ origin: await driver.findElement({ id: 'replacement' }) }).perform();
+  await driver.wait(async () => (await indicator.getCssValue('opacity')) === '1',
+    5000, 'Video speed indicator did not follow player pointer activity');
+  await driver.wait(async () => (await indicator.getCssValue('opacity')) === '0',
+    5000, 'Video speed indicator did not hide when player activity stopped');
+  console.log('Firefox passed: popup and page shortcuts, 0.1× repeated steps, spinner, video indicator, dynamic replacement, persistence and reset.');
 } finally {
   if (driver) await driver.quit();
   await new Promise((done) => server.close(done));

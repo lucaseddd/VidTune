@@ -94,11 +94,12 @@ document.querySelector('#presets').addEventListener('click', (event) => {
 });
 document.querySelector('#manual-speed').addEventListener('submit', (event) => {
   event.preventDefault();
-  if (!manualValue.checkValidity()) {
+  const speed = Number(manualValue.value);
+  if (!manualValue.value.trim() || !Number.isFinite(speed) || speed < 0.1 || speed > 16) {
     setStatus('Enter a speed from 0.1 to 16', 'error');
     return;
   }
-  control({ type: 'SET_SPEED', speed: Number(manualValue.value) });
+  control({ type: 'SET_SPEED', speed });
 });
 toggle.addEventListener('change', async () => {
   try {
@@ -110,5 +111,14 @@ toggle.addEventListener('change', async () => {
     setStatus('Could not save', 'error');
   }
 });
+
+document.addEventListener('keydown', (event) => {
+  if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+  if (event.composedPath().some((element) => element?.closest?.('input, textarea, select, [contenteditable], [role="textbox"]'))) return;
+  const action = { KeyA: 'DECREASE', KeyD: 'INCREASE', KeyQ: 'RESET' }[event.code];
+  if (!action || (action === 'RESET' && event.repeat)) return;
+  event.preventDefault();
+  control({ type: action });
+}, true);
 
 initialize();
