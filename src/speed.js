@@ -1,6 +1,6 @@
 export const MIN_SPEED = 0.1;
 export const MAX_SPEED = 16;
-export const SPEED_STEP = 0.25;
+export const SPEED_STEP = 0.1;
 export const SPEED_PRESETS = Object.freeze([0.5, 1, 1.5, 2, 3, 4]);
 
 export function normalizeSpeed(value) {

@@ -1,4 +1,4 @@
-// Injected only after the user opens VidTune or invokes one of its shortcuts.
+// Injected only when the user opens VidTune or uses a video shortcut.
 (() => {
   if (globalThis.__vidTuneController) return;
   globalThis.__vidTuneController = true;
@@ -6,7 +6,7 @@
   const api = globalThis.browser ?? globalThis.chrome;
   const MIN = 0.1;
   const MAX = 16;
-  const STEP = 0.25;
+  const STEP = 0.1;
   let desiredSpeed = 1;
   let lastActiveVideo = null;
   let observer = null;
@@ -104,9 +104,10 @@
     if (desiredSpeed !== 1) applyToMain();
   });
 
+  let pending = ready;
   api.runtime.onMessage.addListener((message, _sender, respond) => {
     if (!['GET_STATE', 'SET_SPEED', 'INCREASE', 'DECREASE', 'RESET'].includes(message?.type)) return;
-    ready.then(async () => {
+    pending = pending.then(async () => {
       const current = state().speed;
       switch (message.type) {
         case 'SET_SPEED': return setSpeed(message.speed);
@@ -115,7 +116,9 @@
         case 'RESET': return setSpeed(1);
         default: return state();
       }
-    }).then(respond, (error) => respond({ error: String(error) }));
+    });
+    pending.then(respond, (error) => respond({ error: String(error) }));
+    pending = pending.catch(() => {});
     return true;
   });
 })();

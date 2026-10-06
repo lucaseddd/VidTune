@@ -63,11 +63,24 @@ test('shortcut-style messages persist speed and reset idle monitoring', async ()
   const page = fixture(1, [video]);
   assert.equal(page.observer, null);
   assert.equal(page.listeners.size, 0);
-  assert.equal((await page.send({ type: 'INCREASE' })).speed, 1.25);
-  assert.equal(page.settings.speed, 1.25);
+  assert.equal((await page.send({ type: 'INCREASE' })).speed, 1.1);
+  assert.equal(page.settings.speed, 1.1);
   assert.equal(page.observer.active, true);
   assert.equal((await page.send({ type: 'RESET' })).speed, 1);
   assert.equal(page.settings.speed, 1);
   assert.equal(page.observer.active, false);
   assert.equal(page.listeners.size, 0);
+});
+
+test('repeated speed messages apply each 0.1× step in order', async () => {
+  const video = fakeVideo({ playing: true });
+  const page = fixture(1, [video]);
+  const changes = await Promise.all([
+    page.send({ type: 'INCREASE' }),
+    page.send({ type: 'INCREASE' }),
+    page.send({ type: 'INCREASE' })
+  ]);
+  assert.deepEqual(changes.map(({ speed }) => speed), [1.1, 1.2, 1.3]);
+  assert.equal(video.playbackRate, 1.3);
+  assert.equal(page.settings.speed, 1.3);
 });

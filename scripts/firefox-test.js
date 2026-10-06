@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
-import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { resolve, sep } from 'node:path';
+import { mkdir } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { Builder } from 'selenium-webdriver';
 import firefox from 'selenium-webdriver/firefox.js';
 
@@ -8,15 +8,7 @@ process.env.SE_CACHE_PATH = resolve('work/selenium-cache');
 process.env.SE_AVOID_STATS = 'true';
 await mkdir(process.env.SE_CACHE_PATH, { recursive: true });
 
-const testExtension = resolve('work/firefox-test-extension');
-if (!testExtension.startsWith(`${resolve('.')}${sep}`)) throw new Error('Unsafe test directory');
-await rm(testExtension, { recursive: true, force: true });
-await cp(resolve('dist'), testExtension, { recursive: true });
-const manifest = JSON.parse(await readFile(resolve(testExtension, 'manifest.json'), 'utf8'));
-manifest.host_permissions = ['http://127.0.0.1/*'];
-await writeFile(resolve(testExtension, 'manifest.json'), JSON.stringify(manifest, null, 2));
-
-const html = '<!doctype html><title>VidTune Firefox test</title><video id="main" width="640" height="360" controls></video>';
+const html = '<!doctype html><title>VidTune Firefox test</title><body tabindex="0"><input id="typing"><video id="main" width="640" height="360" controls></video>';
 const server = createServer((_request, response) => {
   response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
   response.end(html);
@@ -28,7 +20,7 @@ try {
   const options = new firefox.Options().setBinary('C:\\Program Files\\Mozilla Firefox\\firefox.exe');
   const service = new firefox.ServiceBuilder().addArguments('--allow-system-access');
   driver = await new Builder().forBrowser('firefox').setFirefoxOptions(options).setFirefoxService(service).build();
-  const addOnId = await driver.installAddon(testExtension, true);
+  const addOnId = await driver.installAddon(resolve('dist'), true);
   if (addOnId !== 'vidtune@vidtune.local') throw new Error(`Unexpected add-on ID: ${addOnId}`);
   await driver.setContext(firefox.Context.CHROME);
   const uuid = await driver.executeScript("return JSON.parse(Services.prefs.getStringPref('extensions.webextensions.uuids'))['vidtune@vidtune.local'];");
@@ -39,17 +31,6 @@ try {
   const extensionHandle = await driver.getWindowHandle();
   await driver.get(`moz-extension://${uuid}/popup.html`);
   if (!(await driver.findElement({ id: 'speed-value' }).isDisplayed())) throw new Error('Popup speed control did not render');
-  const shortcuts = await driver.executeAsyncScript('browser.commands.getAll().then(arguments[arguments.length - 1]);');
-  const expectedShortcuts = {
-    'speed-up': 'Ctrl+Shift+Up',
-    'speed-down': 'Ctrl+Shift+Down',
-    'speed-reset': 'Ctrl+Shift+0',
-  };
-  for (const [name, shortcut] of Object.entries(expectedShortcuts)) {
-    if (shortcuts.find((command) => command.name === name)?.shortcut !== shortcut) {
-      throw new Error(`${name} shortcut was not registered as ${shortcut}: ${JSON.stringify(shortcuts)}`);
-    }
-  }
 
   async function control(message) {
     const result = await driver.executeAsyncScript(`
@@ -96,7 +77,20 @@ try {
   if (stored.settings.speed !== 1) throw new Error('Firefox did not persist the reset speed');
   await driver.switchTo().window(pageHandle);
   await waitForRate('replacement', 1);
-  console.log('Firefox passed: temporary install, popup page, registered shortcuts, speed control, dynamic video replacement, persistence and reset.');
+  await driver.findElement({ id: 'typing' }).sendKeys('d');
+  if (await driver.executeScript("return document.getElementById('replacement').playbackRate") !== 1) {
+    throw new Error('Speed shortcut interfered with text entry');
+  }
+  await driver.executeScript('document.body.focus()');
+  await driver.findElement({ css: 'body' }).sendKeys('d');
+  await waitForRate('replacement', 1.1);
+  await driver.findElement({ css: 'body' }).sendKeys('ddd');
+  await waitForRate('replacement', 1.4);
+  await driver.findElement({ css: 'body' }).sendKeys('a');
+  await waitForRate('replacement', 1.3);
+  await driver.findElement({ css: 'body' }).sendKeys('q');
+  await waitForRate('replacement', 1);
+  console.log('Firefox passed: temporary install, popup page, A/D/Q key dispatch, 0.1× repeated steps, dynamic video replacement, persistence and reset.');
 } finally {
   if (driver) await driver.quit();
   await new Promise((done) => server.close(done));

@@ -25,4 +25,9 @@ const expected = ['activeTab', 'scripting', 'storage'];
 if (JSON.stringify(manifest.permissions) !== JSON.stringify(expected) || manifest.host_permissions) {
   throw new Error('Unexpected extension permissions');
 }
+if (manifest.content_scripts?.length !== 1 ||
+    JSON.stringify(manifest.content_scripts[0].matches) !== JSON.stringify(['<all_urls>']) ||
+    JSON.stringify(manifest.content_scripts[0].js) !== JSON.stringify(['src/shortcuts.js'])) {
+  throw new Error('Unexpected content-script access');
+}
 console.log(`Lint passed (${files.length} JavaScript files, manifest permissions checked).`);

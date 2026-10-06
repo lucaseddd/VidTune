@@ -31,7 +31,7 @@ test('speed values clamp, step and format at boundaries', () => {
   assert.equal(normalizeSpeed(null), 1);
   assert.equal(normalizeSpeed(0.01), 0.1);
   assert.equal(normalizeSpeed(100), 16);
-  assert.equal(adjustSpeed(1.5, 1), 1.75);
+  assert.equal(adjustSpeed(1.5, 1), 1.6);
   assert.equal(adjustSpeed(0.1, -1), 0.1);
   assert.equal(formatSpeed(1.5), '1.5×');
 });
