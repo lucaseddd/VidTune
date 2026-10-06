@@ -2,6 +2,7 @@ import { activeTab, browserApi, sendToVideo } from './browser.js';
 import { summarizeVideos } from './detection.js';
 import { loadSettings } from './settings.js';
 import { formatSpeed, normalizeSpeed } from './speed.js';
+import { formatVolume, positionToVolume, volumeToPosition } from './volume.js';
 
 const site = document.querySelector('#site');
 const summary = document.querySelector('#video-summary');
@@ -10,7 +11,12 @@ const speedNote = document.querySelector('#speed-note');
 const speedValue = document.querySelector('#speed-value');
 const manualValue = document.querySelector('#manual-value');
 const refresh = document.querySelector('#refresh');
+const volumeSlider = document.querySelector('#volume-slider');
+const volumeValue = document.querySelector('#volume-value');
 let currentTab = null;
+let volumeTimer = null;
+let pendingVolume = null;
+let volumeRequests = Promise.resolve();
 let shortcuts = { decrease: 'KeyA', increase: 'KeyD', reset: 'KeyQ', seekBackward: null, seekForward: null };
 let seekEnabled = false;
 
@@ -39,11 +45,36 @@ function renderSpeed(speed, hasVideo = false) {
   }
 }
 
+function renderVolume(volume) {
+  const label = formatVolume(volume);
+  volumeSlider.value = String(volumeToPosition(volume));
+  volumeSlider.setAttribute('aria-valuetext', label);
+  volumeValue.textContent = label;
+}
+
+function volumeFromSlider() {
+  const volume = positionToVolume(volumeSlider.value);
+  const label = formatVolume(volume);
+  volumeSlider.setAttribute('aria-valuetext', label);
+  volumeValue.textContent = label;
+  return volume;
+}
+
+function sendVolume(volume, persist) {
+  if (!currentTab?.id) return;
+  volumeRequests = volumeRequests.catch(() => {}).then(async () => {
+    const state = await sendToVideo(currentTab.id, { type: persist ? 'SET_VOLUME' : 'PREVIEW_VOLUME', volume });
+    if (state.error) throw new Error(state.error);
+    if (persist) renderVolume(state.volume);
+  }).catch(() => setStatus('Volume unavailable here', 'error'));
+}
+
 function renderVideoState(state) {
   if (state?.error) throw new Error(state.error);
   summary.textContent = summarizeVideos(state.count);
   setStatus(state.hasVideo ? 'Ready' : 'No video', state.hasVideo ? 'ready' : '');
   renderSpeed(state.speed, state.hasVideo);
+  if (document.activeElement !== volumeSlider) renderVolume(state.volume);
 }
 
 async function scan() {
@@ -80,12 +111,14 @@ async function initialize() {
     renderPresets(settings.presets);
     document.querySelector('.footnote').textContent = `Video shortcuts: ${shortcuts.decrease?.slice(3) ?? '—'} slower · ${shortcuts.increase?.slice(3) ?? '—'} faster · ${shortcuts.reset?.slice(3) ?? '—'} reset`;
     renderSpeed(settings.speed);
+    renderVolume(settings.volume);
     currentTab = tab;
     if (!tab) {
       site.textContent = 'No active tab';
       summary.textContent = 'Open a page to get started.';
       setStatus('No tab');
       refresh.disabled = true;
+      volumeSlider.disabled = true;
       return;
     }
     try { site.textContent = new URL(tab.url).hostname || 'Current page'; }
@@ -99,6 +132,18 @@ async function initialize() {
 }
 
 refresh.addEventListener('click', scan);
+volumeSlider.addEventListener('input', () => {
+  pendingVolume = volumeFromSlider();
+  if (!volumeTimer) volumeTimer = setTimeout(() => {
+    volumeTimer = null;
+    sendVolume(pendingVolume, false);
+  }, 50);
+});
+volumeSlider.addEventListener('change', () => {
+  clearTimeout(volumeTimer);
+  volumeTimer = null;
+  sendVolume(volumeFromSlider(), true);
+});
 document.querySelector('#open-settings').addEventListener('click', () => browserApi().runtime.openOptionsPage());
 document.querySelector('#increase').addEventListener('click', () => control({ type: 'INCREASE' }));
 document.querySelector('#decrease').addEventListener('click', () => control({ type: 'DECREASE' }));

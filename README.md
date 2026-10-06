@@ -1,6 +1,6 @@
 # VidTune
 
-**VidTune — Speed, Volume & PiP** is a lightweight browser extension under development. Version 0.3.0 adds advanced speed settings and optional keyboard seeking. Volume and Picture in Picture are planned for later milestones.
+**VidTune — Speed, Volume & PiP** is a lightweight browser extension under development. Version 0.4.0 adds native video volume control. Picture in Picture is planned for a later milestone.
 
 ## Speed controls
 
@@ -13,6 +13,12 @@
 - A small speed indicator appears at the video's upper-left corner while player controls are visible and briefly after a speed change. It ignores pointer input. YouTube's control visibility is followed directly; other players use pointer activity and a short idle timeout.
 - The active video is chosen by playback state and visible size. When a site replaces a video without navigating, VidTune applies the saved speed to the replacement.
 - **Detect videos when opening the popup** is in Settings. Speed controls remain available when automatic scanning is off.
+
+## Volume control
+
+- Drag the popup slider from 0% to 100%. It uses the video's native volume control, without amplification or audio processing.
+- The slider gives more room to quiet levels: position 1 is 0.01%, position 10 is 1%, and position 50 is 25%. The displayed percentage is the actual volume.
+- Volume is saved locally and applied to new videos, including videos replaced by a site without navigation. Adjusting the slider above 0% also unmutes a muted video.
 
 ## Development
 
@@ -34,6 +40,6 @@ The temporary Firefox installation is removed when Firefox restarts. Rebuild and
 
 ## Privacy and permissions
 
-VidTune stores settings locally in browser storage. It makes no network requests and has no analytics. A small content script runs on web pages to hear configured single-letter shortcuts and check whether a site speed should be applied; these keys cannot be registered through the browser commands API. This requires access to web pages through the manifest's `<all_urls>` content-script match. The video controller is injected only when the popup or a shortcut is used, or when a saved site speed needs to be applied. `activeTab` and `scripting` load the controller; `storage` saves preferences. The background script runs only for extension events. At 1× without a site profile, the controller has no document-wide video mutation observer or video lifecycle listeners; YouTube's player class observer may remain active for the indicator.
+VidTune stores settings locally in browser storage. It makes no network requests and has no analytics. A small content script runs on web pages to hear configured single-letter shortcuts and check whether a saved site speed or volume should be applied; these keys cannot be registered through the browser commands API. This requires access to web pages through the manifest's `<all_urls>` content-script match. The video controller is injected only when the popup or a shortcut is used, or when a saved site speed or volume needs to be applied. `activeTab` and `scripting` load the controller; `storage` saves preferences. The background script runs only for extension events. At 1× and 100% volume without a site profile, the controller has no document-wide video mutation observer or video lifecycle listeners; YouTube's player class observer may remain active for the indicator.
 
-Browser internal pages and some restricted pages do not allow scanning. The popup reports this without interrupting browsing. The controller checks the active document; cross-origin frames are not included in v0.3.0. Exact frame stepping is deferred because the generic web video API does not provide a reliable cross-browser next-frame seek operation.
+Browser internal pages and some restricted pages do not allow scanning. The popup reports this without interrupting browsing. The controller checks the active document; cross-origin frames are not included in v0.4.0. Exact frame stepping is deferred because the generic web video API does not provide a reliable cross-browser next-frame seek operation.

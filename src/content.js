@@ -8,6 +8,7 @@
   const MAX = 16;
   const siteHost = globalThis.location?.hostname ?? '';
   let desiredSpeed = 1;
+  let desiredVolume = 1;
   let hasSiteProfile = false;
   let speedStep = 0.1;
   let seekSeconds = 10;
@@ -31,6 +32,14 @@
       : 1;
   }
 
+  function normalizeVolume(value) {
+    if (value == null || value === '') return 1;
+    const number = Number(value);
+    return Number.isFinite(number)
+      ? Math.round(Math.max(0, Math.min(1, number)) * 10000) / 10000
+      : 1;
+  }
+
   function videos() {
     return [...document.querySelectorAll('video')].filter((video) => video.isConnected);
   }
@@ -51,6 +60,7 @@
 
   function apply(video, speed = desiredSpeed) {
     if (video && Math.abs(video.playbackRate - speed) > 0.001) video.playbackRate = speed;
+    if (video && desiredVolume !== 1 && Math.abs(video.volume - desiredVolume) > 0.00005) video.volume = desiredVolume;
   }
 
   function indicatorControlsVisible() {
@@ -174,13 +184,13 @@
   }
 
   function updateMonitoring() {
-    if ((desiredSpeed !== 1 || hasSiteProfile) && !observer) {
+    if ((desiredSpeed !== 1 || desiredVolume !== 1 || hasSiteProfile) && !observer) {
       document.addEventListener('play', onMediaEvent, true);
       document.addEventListener('loadedmetadata', onMediaEvent, true);
       document.addEventListener('loadstart', onMediaEvent, true);
       observer = new MutationObserver(onMutations);
       observer.observe(document.documentElement, { childList: true, subtree: true });
-    } else if (desiredSpeed === 1 && !hasSiteProfile && observer) {
+    } else if (desiredSpeed === 1 && desiredVolume === 1 && !hasSiteProfile && observer) {
       observer.disconnect();
       observer = null;
       lastActiveVideo = null;
@@ -196,6 +206,7 @@
     return {
       count: videos().length,
       speed: video ? normalize(video.playbackRate) : desiredSpeed,
+      volume: video ? normalizeVolume(video.muted ? 0 : video.volume) : desiredVolume,
       hasVideo: Boolean(video),
       playing: Boolean(video && !video.paused && !video.ended)
     };
@@ -212,6 +223,20 @@
       ? { ...settings, siteSpeeds: { ...siteSpeeds, [siteHost]: desiredSpeed } }
       : { ...settings, speed: desiredSpeed };
     await api.storage.local.set({ settings: updated });
+    return state();
+  }
+
+  async function setVolume(value, persist) {
+    desiredVolume = normalizeVolume(value);
+    updateMonitoring();
+    const video = mainVideo();
+    if (video && Math.abs(video.volume - desiredVolume) > 0.00005) video.volume = desiredVolume;
+    if (video && desiredVolume > 0 && video.muted) video.muted = false;
+    applyToMain();
+    if (persist) {
+      const { settings } = await api.storage.local.get('settings');
+      await api.storage.local.set({ settings: { ...settings, volume: desiredVolume } });
+    }
     return state();
   }
 
@@ -234,10 +259,11 @@
   const ready = api.storage.local.get('settings').then(({ settings }) => {
     hasSiteProfile = Object.hasOwn(settings?.siteSpeeds ?? {}, siteHost);
     desiredSpeed = normalize(settings?.siteSpeeds?.[siteHost] ?? settings?.speed);
+    desiredVolume = normalizeVolume(settings?.volume);
     speedStep = Number(settings?.speedStep) || 0.1;
     seekSeconds = Number(settings?.seekSeconds) || 10;
     updateMonitoring();
-    if (desiredSpeed !== 1 || hasSiteProfile) applyToMain();
+    if (desiredSpeed !== 1 || desiredVolume !== 1 || hasSiteProfile) applyToMain();
   });
 
   api.storage.onChanged?.addListener((changes, area) => {
@@ -246,12 +272,19 @@
     speedStep = Number(settings?.speedStep) || 0.1;
     seekSeconds = Number(settings?.seekSeconds) || 10;
     hasSiteProfile = Object.hasOwn(settings?.siteSpeeds ?? {}, siteHost);
+    const nextVolume = normalizeVolume(settings?.volume);
+    if (nextVolume !== desiredVolume) {
+      desiredVolume = nextVolume;
+      const video = mainVideo();
+      if (video) video.volume = nextVolume;
+      applyToMain();
+    }
     updateMonitoring();
   });
 
   let pending = ready;
   api.runtime.onMessage.addListener((message, _sender, respond) => {
-    if (!['GET_STATE', 'SET_SPEED', 'INCREASE', 'DECREASE', 'RESET', 'SEEK_BACKWARD', 'SEEK_FORWARD'].includes(message?.type)) return;
+    if (!['GET_STATE', 'SET_SPEED', 'INCREASE', 'DECREASE', 'RESET', 'SET_VOLUME', 'PREVIEW_VOLUME', 'SEEK_BACKWARD', 'SEEK_FORWARD'].includes(message?.type)) return;
     pending = pending.then(async () => {
       const current = state().speed;
       switch (message.type) {
@@ -259,6 +292,8 @@
         case 'INCREASE': return setSpeed(current + speedStep);
         case 'DECREASE': return setSpeed(current - speedStep);
         case 'RESET': return setSpeed(1);
+        case 'SET_VOLUME': return setVolume(message.volume, true);
+        case 'PREVIEW_VOLUME': return setVolume(message.volume, false);
         case 'SEEK_BACKWARD': return seek(-1);
         case 'SEEK_FORWARD': return seek(1);
         default: return state();

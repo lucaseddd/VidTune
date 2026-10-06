@@ -1,11 +1,12 @@
 import { browserApi } from './browser.js';
 import { normalizeSpeed, SPEED_PRESETS } from './speed.js';
+import { normalizeVolume } from './volume.js';
 
 export const DEFAULT_SHORTCUTS = Object.freeze({
   decrease: 'KeyA', increase: 'KeyD', reset: 'KeyQ', seekBackward: null, seekForward: null
 });
 export const DEFAULT_SETTINGS = Object.freeze({
-  autoDetect: true, speed: 1, speedStep: 0.1, presets: SPEED_PRESETS,
+  autoDetect: true, speed: 1, volume: 1, speedStep: 0.1, presets: SPEED_PRESETS,
   shortcuts: DEFAULT_SHORTCUTS, seekEnabled: false, seekSeconds: 10, siteSpeeds: {}
 });
 
@@ -41,6 +42,7 @@ export function normalizeSettings(value) {
   return {
     autoDetect: typeof value?.autoDetect === 'boolean' ? value.autoDetect : true,
     speed: normalizeSpeed(value?.speed),
+    volume: normalizeVolume(value?.volume),
     speedStep: Number.isFinite(step) && step >= 0.01 && step <= 2 ? Math.round(step * 100) / 100 : 0.1,
     presets: presets(value?.presets),
     shortcuts: keys,

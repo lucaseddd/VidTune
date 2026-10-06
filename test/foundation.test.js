@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { DEFAULT_SETTINGS, normalizeSettings, updateSettings } from '../src/settings.js';
 import { summarizeVideos } from '../src/detection.js';
 import { adjustSpeed, formatSpeed, normalizeSpeed } from '../src/speed.js';
+import { formatVolume, normalizeVolume, positionToVolume, volumeToPosition } from '../src/volume.js';
 
 test('settings default and reject invalid stored values', () => {
   assert.deepEqual(normalizeSettings(undefined), { ...DEFAULT_SETTINGS, presets: [...DEFAULT_SETTINGS.presets], shortcuts: { ...DEFAULT_SETTINGS.shortcuts } });
@@ -12,10 +13,24 @@ test('settings default and reject invalid stored values', () => {
   assert.equal(invalid.speed, 1);
   assert.equal(invalid.speedStep, 0.1);
   assert.equal(invalid.seekSeconds, 10);
+  assert.equal(invalid.volume, 1);
   const custom = normalizeSettings({ shortcuts: { decrease: 'KeyZ', increase: 'KeyX', reset: 'KeyQ', seekBackward: 'KeyB', seekForward: 'KeyF' }, presets: [0.5, 1, 1.25], siteSpeeds: { 'example.com': 1.75 } });
   assert.equal(custom.shortcuts.decrease, 'KeyZ');
   assert.deepEqual(custom.presets, [0.5, 1, 1.25]);
   assert.deepEqual(custom.siteSpeeds, { 'example.com': 1.75 });
+});
+
+test('volume slider gives fine control near zero and remains reversible', () => {
+  assert.equal(positionToVolume(0), 0);
+  assert.equal(positionToVolume(1), 0.0001);
+  assert.equal(positionToVolume(10), 0.01);
+  assert.equal(positionToVolume(50), 0.25);
+  assert.equal(positionToVolume(100), 1);
+  assert.equal(volumeToPosition(0.01), 10);
+  assert.equal(formatVolume(0.0001), '0.01%');
+  assert.equal(formatVolume(0.075), '7.5%');
+  assert.equal(normalizeVolume(2), 1);
+  assert.equal(normalizeVolume(-1), 0);
 });
 
 test('changing auto detection preserves the saved playback speed', async () => {

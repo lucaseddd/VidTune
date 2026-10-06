@@ -8,7 +8,7 @@ const source = await readFile(new URL('../src/content.js', import.meta.url), 'ut
 function fakeVideo({ playing = false, width = 640, height = 360 } = {}) {
   return {
     nodeType: 1, localName: 'video', isConnected: true,
-    paused: !playing, ended: false, playbackRate: 1, currentTime: 50, duration: 120,
+    paused: !playing, ended: false, playbackRate: 1, volume: 1, muted: false, currentTime: 50, duration: 120,
     seekable: { length: 1, start: () => 0, end: () => 120 },
     getBoundingClientRect: () => ({ width, height })
   };
@@ -114,4 +114,35 @@ test('a 1× site profile keeps dynamically added videos at 1×', async () => {
   page.observer.callback([{ addedNodes: [replacement], removedNodes: [first] }]);
   await new Promise(queueMicrotask);
   assert.equal(replacement.playbackRate, 1);
+});
+
+test('low saved volume follows video replacement and can be reset to 100%', async () => {
+  const first = fakeVideo();
+  const page = fixture(1, [first], { volume: 0.0004 });
+  assert.equal((await page.send({ type: 'GET_STATE' })).volume, 0.0004);
+  assert.equal(first.volume, 0.0004);
+  assert.equal(page.observer.active, true);
+  const replacement = fakeVideo();
+  first.isConnected = false;
+  page.videos = [replacement];
+  page.observer.callback([{ addedNodes: [replacement], removedNodes: [first] }]);
+  await new Promise(queueMicrotask);
+  assert.equal(replacement.volume, 0.0004);
+  await page.send({ type: 'SET_VOLUME', volume: 1 });
+  assert.equal(replacement.volume, 1);
+  assert.equal(page.settings.volume, 1);
+  assert.equal(page.observer.active, false);
+});
+
+test('volume preview applies without saving and explicit adjustment unmutes', async () => {
+  const video = fakeVideo();
+  video.muted = true;
+  const page = fixture(1, [video]);
+  assert.equal((await page.send({ type: 'GET_STATE' })).volume, 0);
+  await page.send({ type: 'PREVIEW_VOLUME', volume: 0.01 });
+  assert.equal(video.volume, 0.01);
+  assert.equal(video.muted, false);
+  assert.equal(page.settings.volume, undefined);
+  await page.send({ type: 'SET_VOLUME', volume: 0 });
+  assert.equal(page.settings.volume, 0);
 });

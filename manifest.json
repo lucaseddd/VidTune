@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "VidTune — Speed, Volume & PiP",
   "short_name": "VidTune",
-  "version": "0.3.0",
-  "description": "Lightweight video speed controls with presets and shortcuts.",
+  "version": "0.4.0",
+  "description": "Lightweight video speed and volume controls with presets and shortcuts.",
   "action": {
     "default_title": "VidTune",
     "default_popup": "popup.html"

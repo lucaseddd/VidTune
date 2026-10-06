@@ -2,9 +2,9 @@
 
 ## Current checkpoint
 
-- Version: 0.3.0
-- Phase: 3 — Advanced Speed & Shortcuts
-- Status: v0.3.0 checkpoint complete; waiting for user testing before Phase 4
+- Version: 0.4.0
+- Phase: 4 — Volume Control
+- Status: v0.4.0 checkpoint complete; waiting for user testing before Phase 5
 
 ## Completed
 
@@ -24,6 +24,8 @@
 - Configurable single-letter speed/reset shortcuts and a configurable 0.01×–2× step
 - Optional backward/forward skip shortcuts with a 1–60-second jump, disabled and unassigned by default
 - Automatic site speed profiles that persist and follow dynamically added videos
+- Native 0%–100% volume control in the popup, with a squared slider curve for fine control near silence
+- Actual volume percentage shown down to 0.01%; saved volume follows newly loaded and dynamically replaced videos
 
 ## Decisions
 
@@ -34,6 +36,8 @@
 - A Firefox MV3 background event page and Chromium service worker share the shortcut handler.
 - The popup keeps only quick controls. Advanced controls use the browser's native extension options page; video detection moved there as well.
 - Seeking clamps to the media's seekable range. No extra popup buttons or permissions were added for it.
+- Volume uses `HTMLMediaElement.volume` directly. Slider previews are throttled and saved on release; no Web Audio graph or additional permission is active.
+- A saved volume below 100% triggers the existing preference initializer on new pages. At the default 100%, it does not add a page observer.
 
 ## Known limits
 
@@ -42,17 +46,18 @@
 - The key listener currently operates in the top-level document; cross-origin video frames remain out of scope.
 - Exact control visibility varies across players; the generic indicator uses pointer activity as a proxy. Fullscreen mode where the video element itself enters the top layer cannot contain a separate indicator.
 - Exact frame stepping is deferred: the generic `currentTime` seek is not frame-accurate, and `seekToNextFrame()` is deprecated and nonstandard.
+- Volume changes apply to the selected main video in the active document. Some embedded, cross-origin players remain inaccessible.
 - Live-site automation for YouTube, Vimeo, Twitch and Reddit was rejected by automatic approval review because it would widen test host access. This needs explicit user authorization before automation can run.
 - `npm audit --omit=dev` found no runtime vulnerabilities. Three high-severity advisories remain in the Mozilla `web-ext` development dependency chain; they are not included in the browser packages.
 
 ## Test results
 
-- Build and local lint passed; all 9 automated tests passed, covering speed math, repeated changes, settings migration, site profiles, seek boundaries, video selection and dynamic replacement.
+- Build and local lint passed; all 12 automated tests passed, including volume precision, preview/persistence, mute release, replacement and reset.
 - Mozilla `web-ext lint` passed with no errors or warnings. Both browser packages were generated.
-- Firefox WebDriver installed the extension temporarily and verified Settings opening, configurable keys and speed step, optional seek on local media, site speed after reload, popup controls, indicator and persistence.
-- A Firefox development window loaded the v0.3.0 build for manual testing. At 1× without a site profile, the controller has no video mutation observer or video lifecycle listeners.
-- The v0.3.0 code and tag were pushed to the private `origin` repository.
+- Firefox WebDriver installed the extension temporarily and verified the popup slider at 0.01% and 25%, persistence on replacement and reload, Settings, shortcuts, seek and the speed indicator.
+- A Firefox development window loaded the v0.4.0 build with the popup open for manual testing. At 1× and 100% volume without a site profile, the controller has no video mutation observer or video lifecycle listeners.
+- The v0.4.0 code and tag were pushed to the private `origin` repository.
 
 ## Next milestone
 
-Phase 4 — Volume Control, only after explicit user approval following the v0.3.0 checkpoint.
+Phase 5 — Advanced Audio / Volume Boost, only after explicit user approval following the v0.4.0 checkpoint.

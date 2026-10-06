@@ -50,6 +50,17 @@ try {
   const spinnerStep = await driver.executeScript("const input = document.getElementById('manual-value'); input.stepUp(); return input.value;");
   if (spinnerStep !== '1.1') throw new Error(`Manual spinner used the wrong step: ${spinnerStep}`);
 
+  async function setPopupVolume(position, expected) {
+    await driver.executeScript(`
+      const slider = document.getElementById('volume-slider');
+      slider.value = arguments[0];
+      slider.dispatchEvent(new Event('input', { bubbles: true }));
+      slider.dispatchEvent(new Event('change', { bubbles: true }));
+    `, position);
+    await driver.wait(async () => (await driver.findElement({ id: 'volume-value' }).getText()) === expected,
+      5000, `Popup volume did not show ${expected}`);
+  }
+
   async function control(message) {
     const result = await driver.executeAsyncScript(`
       const message = arguments[0];
@@ -71,6 +82,21 @@ try {
     10000, `${id} did not reach ${speed}×`);
   }
 
+  async function waitForVolume(id, volume) {
+    await driver.wait(async () =>
+      Math.abs(await driver.executeScript(`return document.getElementById('${id}')?.volume ?? -1`) - volume) < 0.00005,
+    10000, `${id} did not reach ${volume} volume`);
+  }
+
+  await setPopupVolume(1, '0.01%');
+  await driver.switchTo().window(pageHandle);
+  await waitForVolume('main', 0.0001);
+  await driver.switchTo().window(extensionHandle);
+  await setPopupVolume(50, '25%');
+  await driver.switchTo().window(pageHandle);
+  await waitForVolume('main', 0.25);
+  await driver.switchTo().window(extensionHandle);
+
   const changed = await control({ type: 'SET_SPEED', speed: 1.5 });
   if (changed.speed !== 1.5 || changed.count !== 1) throw new Error('Firefox did not apply speed to the main video');
   await driver.switchTo().window(pageHandle);
@@ -88,6 +114,7 @@ try {
   await driver.switchTo().window(pageHandle);
   await driver.executeScript("document.getElementById('main').remove(); const video = document.createElement('video'); video.id = 'replacement'; video.width = 640; video.height = 360; document.body.append(video);");
   await waitForRate('replacement', 1.5);
+  await waitForVolume('replacement', 0.25);
   await driver.switchTo().window(extensionHandle);
   const reset = await control({ type: 'RESET' });
   if (reset.speed !== 1) throw new Error('Firefox did not reset speed');
@@ -171,7 +198,8 @@ try {
   await waitForRate('replacement', 1.7);
   await driver.navigate().refresh();
   await waitForRate('main', 1.7);
-  console.log('Firefox passed: settings page, configurable keys and step, optional seek, site speed on reload, popup controls, indicator and persistence.');
+  await waitForVolume('main', 0.25);
+  console.log('Firefox passed: low-volume slider, saved volume on replacement and reload, settings, shortcuts, seek, site speed and indicator.');
 } finally {
   if (driver) await driver.quit();
   await new Promise((done) => server.close(done));

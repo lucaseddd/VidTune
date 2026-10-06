@@ -9,7 +9,7 @@
 </head>
 <body>
   <main class="shell">
-    <header class="brand"><span class="brand-mark" aria-hidden="true">▶</span><div><strong>VidTune</strong><small>Video, your way</small></div><button id="open-settings" class="settings-link" type="button" aria-label="Open settings" title="Settings">⚙</button><span class="version">v0.3.0</span></header>
+    <header class="brand"><span class="brand-mark" aria-hidden="true">▶</span><div><strong>VidTune</strong><small>Video, your way</small></div><button id="open-settings" class="settings-link" type="button" aria-label="Open settings" title="Settings">⚙</button><span class="version">v0.4.0</span></header>
     <section class="card speed-card" aria-labelledby="speed-heading">
       <div class="card-heading"><h1 id="speed-heading">Speed</h1><span id="speed-note" class="status">Ready</span></div>
       <div class="speed-control">
@@ -31,6 +31,11 @@
         <button type="submit" class="secondary">Apply</button>
       </form>
       <div class="speed-footer"><span id="speed-range">0.1×–16×</span><button id="reset" type="button" class="text-button">Reset to 1×</button></div>
+    </section>
+    <section class="card volume-card" aria-labelledby="volume-heading">
+      <div class="card-heading"><h2 id="volume-heading">Volume</h2><output id="volume-value" for="volume-slider">100%</output></div>
+      <input id="volume-slider" type="range" min="0" max="100" step="1" value="100" aria-label="Video volume" aria-valuetext="100%">
+      <div class="volume-scale" aria-hidden="true"><span>0%</span><span>100%</span></div>
     </section>
     <section class="card" aria-labelledby="video-heading">
       <div class="card-heading"><h2 id="video-heading">Current page</h2><span id="status" class="status">Checking…</span></div>

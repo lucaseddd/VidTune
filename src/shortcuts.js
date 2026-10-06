@@ -3,7 +3,7 @@
   const api = globalThis.browser ?? globalThis.chrome;
   let shortcuts = { decrease: 'KeyA', increase: 'KeyD', reset: 'KeyQ', seekBackward: null, seekForward: null };
   let seekEnabled = false;
-  let siteSpeed = null;
+  let preferenceKey = null;
 
   function useSettings(settings) {
     shortcuts = {
@@ -12,9 +12,11 @@
     };
     seekEnabled = settings?.seekEnabled === true;
     const speed = settings?.siteSpeeds?.[location.hostname];
-    if (speed != null && speed !== siteSpeed) {
-      siteSpeed = speed;
-      api.runtime.sendMessage({ type: 'INIT_SITE' }).catch(() => {});
+    const volume = settings?.volume ?? 1;
+    const nextKey = speed != null || volume !== 1 ? `${speed ?? ''}:${volume}` : null;
+    if (nextKey && nextKey !== preferenceKey) {
+      preferenceKey = nextKey;
+      api.runtime.sendMessage({ type: 'INIT_PREFERENCES' }).catch(() => {});
     }
   }
 
