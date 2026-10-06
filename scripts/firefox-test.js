@@ -1,0 +1,94 @@
+import { createServer } from 'node:http';
+import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { resolve, sep } from 'node:path';
+import { Builder } from 'selenium-webdriver';
+import firefox from 'selenium-webdriver/firefox.js';
+
+process.env.SE_CACHE_PATH = resolve('work/selenium-cache');
+process.env.SE_AVOID_STATS = 'true';
+await mkdir(process.env.SE_CACHE_PATH, { recursive: true });
+
+const testExtension = resolve('work/firefox-test-extension');
+if (!testExtension.startsWith(`${resolve('.')}${sep}`)) throw new Error('Unsafe test directory');
+await rm(testExtension, { recursive: true, force: true });
+await cp(resolve('dist'), testExtension, { recursive: true });
+const manifest = JSON.parse(await readFile(resolve(testExtension, 'manifest.json'), 'utf8'));
+manifest.host_permissions = ['http://127.0.0.1/*'];
+await writeFile(resolve(testExtension, 'manifest.json'), JSON.stringify(manifest, null, 2));
+
+const html = '<!doctype html><title>VidTune Firefox test</title><video id="main" width="640" height="360" controls></video>';
+const server = createServer((_request, response) => {
+  response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+  response.end(html);
+});
+await new Promise((ready) => server.listen(0, '127.0.0.1', ready));
+
+let driver;
+try {
+  const options = new firefox.Options().setBinary('C:\\Program Files\\Mozilla Firefox\\firefox.exe');
+  const service = new firefox.ServiceBuilder().addArguments('--allow-system-access');
+  driver = await new Builder().forBrowser('firefox').setFirefoxOptions(options).setFirefoxService(service).build();
+  const addOnId = await driver.installAddon(testExtension, true);
+  if (addOnId !== 'vidtune@vidtune.local') throw new Error(`Unexpected add-on ID: ${addOnId}`);
+  await driver.setContext(firefox.Context.CHROME);
+  const uuid = await driver.executeScript("return JSON.parse(Services.prefs.getStringPref('extensions.webextensions.uuids'))['vidtune@vidtune.local'];");
+  await driver.setContext(firefox.Context.CONTENT);
+  await driver.get(`http://127.0.0.1:${server.address().port}/`);
+  const pageHandle = await driver.getWindowHandle();
+  await driver.switchTo().newWindow('tab');
+  const extensionHandle = await driver.getWindowHandle();
+  await driver.get(`moz-extension://${uuid}/popup.html`);
+  if (!(await driver.findElement({ id: 'speed-value' }).isDisplayed())) throw new Error('Popup speed control did not render');
+  const shortcuts = await driver.executeAsyncScript('browser.commands.getAll().then(arguments[arguments.length - 1]);');
+  if (shortcuts.length !== 3) throw new Error('Speed shortcuts were not registered');
+
+  async function control(message) {
+    const result = await driver.executeAsyncScript(`
+      const message = arguments[0];
+      const done = arguments[arguments.length - 1];
+      browser.tabs.query({}).then((tabs) => {
+        const tab = tabs.find((candidate) => candidate.url?.startsWith('http://127.0.0.1:'));
+        if (!tab) throw new Error('Video test tab was not found');
+        return browser.scripting.executeScript({ target: { tabId: tab.id }, files: ['src/content.js'] })
+          .then(() => browser.tabs.sendMessage(tab.id, message));
+      }).then(done, (error) => done({ error: String(error) }));
+    `, message);
+    if (result?.error) throw new Error(result.error);
+    return result;
+  }
+
+  async function waitForRate(id, speed) {
+    await driver.wait(async () =>
+      Math.abs(await driver.executeScript(`return document.getElementById('${id}')?.playbackRate ?? 0`) - speed) < 0.001,
+    10000, `${id} did not reach ${speed}×`);
+  }
+
+  const changed = await control({ type: 'SET_SPEED', speed: 1.5 });
+  if (changed.speed !== 1.5 || changed.count !== 1) throw new Error('Firefox did not apply speed to the main video');
+  await driver.switchTo().window(pageHandle);
+  await waitForRate('main', 1.5);
+  await driver.switchTo().window(extensionHandle);
+  await control({ type: 'SET_SPEED', speed: 0.1 });
+  await driver.switchTo().window(pageHandle);
+  await waitForRate('main', 0.1);
+  await driver.switchTo().window(extensionHandle);
+  await control({ type: 'SET_SPEED', speed: 16 });
+  await driver.switchTo().window(pageHandle);
+  await waitForRate('main', 16);
+  await driver.switchTo().window(extensionHandle);
+  await control({ type: 'SET_SPEED', speed: 1.5 });
+  await driver.switchTo().window(pageHandle);
+  await driver.executeScript("document.getElementById('main').remove(); const video = document.createElement('video'); video.id = 'replacement'; video.width = 640; video.height = 360; document.body.append(video);");
+  await waitForRate('replacement', 1.5);
+  await driver.switchTo().window(extensionHandle);
+  const reset = await control({ type: 'RESET' });
+  if (reset.speed !== 1) throw new Error('Firefox did not reset speed');
+  const stored = await driver.executeAsyncScript("browser.storage.local.get('settings').then(arguments[arguments.length - 1]);");
+  if (stored.settings.speed !== 1) throw new Error('Firefox did not persist the reset speed');
+  await driver.switchTo().window(pageHandle);
+  await waitForRate('replacement', 1);
+  console.log('Firefox passed: temporary install, popup page, registered shortcuts, speed control, dynamic video replacement, persistence and reset.');
+} finally {
+  if (driver) await driver.quit();
+  await new Promise((done) => server.close(done));
+}

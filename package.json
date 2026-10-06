@@ -1,21 +1,23 @@
 {
   "name": "vidtune",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "Lightweight video controls for the web",
   "scripts": {
     "build": "node scripts/build.js",
     "lint": "node scripts/lint.js",
     "lint:firefox": "web-ext lint --source-dir dist",
-    "test": "node --test",
+    "test": "node --test test/foundation.test.js test/content.test.js",
     "package": "node scripts/package.js",
-    "firefox": "web-ext run --source-dir dist"
+    "firefox": "web-ext run --source-dir dist",
+    "test:firefox": "node scripts/firefox-test.js"
   },
   "engines": {
     "node": ">=20"
   },
   "devDependencies": {
+    "selenium-webdriver": "^4.50.0",
     "web-ext": "^10.7.0"
   }
 }
