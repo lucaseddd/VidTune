@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>VidTune</title>
+  <link rel="stylesheet" href="styles/popup.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="brand"><span class="brand-mark" aria-hidden="true">▶</span><div><strong>VidTune</strong><small>Video, your way</small></div><span class="version">v0.1</span></header>
+    <section class="card" aria-labelledby="video-heading">
+      <div class="card-heading"><h1 id="video-heading">Current page</h1><span id="status" class="status">Checking…</span></div>
+      <p id="site" class="site">—</p>
+      <p id="video-summary" class="summary" role="status" aria-live="polite">Looking for videos…</p>
+      <button id="refresh" type="button" class="secondary">Scan again</button>
+    </section>
+    <section class="card" aria-labelledby="settings-heading">
+      <h2 id="settings-heading">Preferences</h2>
+      <label class="toggle-row" for="auto-detect"><span><strong>Detect videos</strong><small>Scan when you open VidTune</small></span><input id="auto-detect" type="checkbox"></label>
+    </section>
+    <p class="footnote">Playback controls arrive in the next releases.</p>
+  </main>
+  <script type="module" src="src/popup.js"></script>
+</body>
+</html>

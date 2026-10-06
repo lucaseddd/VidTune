@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "VidTune — Speed, Volume & PiP",
+  "short_name": "VidTune",
+  "version": "0.1.0",
+  "description": "A lightweight foundation for controlling web video.",
+  "action": {
+    "default_title": "VidTune",
+    "default_popup": "popup.html"
+  },
+  "permissions": ["activeTab", "scripting", "storage"],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "vidtune@vidtune.local",
+      "data_collection_permissions": { "required": ["none"] }
+    }
+  }
+}
