@@ -65,6 +65,9 @@ function sendVolume(volume, persist) {
   volumeRequests = volumeRequests.catch(() => {}).then(async () => {
     const state = await sendToVideo(currentTab.id, { type: persist ? 'SET_VOLUME' : 'PREVIEW_VOLUME', volume });
     if (state.error) throw new Error(state.error);
+    if (state.boostUnavailable) setStatus('Boost unavailable for this video', 'error');
+    else if (state.boostPending) setStatus('Play video to enable boost');
+    else if (state.hasVideo) setStatus('Ready', 'ready');
     if (persist) renderVolume(state.volume);
   }).catch(() => setStatus('Volume unavailable here', 'error'));
 }
@@ -72,7 +75,8 @@ function sendVolume(volume, persist) {
 function renderVideoState(state) {
   if (state?.error) throw new Error(state.error);
   summary.textContent = summarizeVideos(state.count);
-  setStatus(state.hasVideo ? 'Ready' : 'No video', state.hasVideo ? 'ready' : '');
+  setStatus(state.boostUnavailable ? 'Boost unavailable for this video' : state.boostPending ? 'Play video to enable boost' : state.hasVideo ? 'Ready' : 'No video',
+    state.boostUnavailable ? 'error' : state.hasVideo && !state.boostPending ? 'ready' : '');
   renderSpeed(state.speed, state.hasVideo);
   if (document.activeElement !== volumeSlider) renderVolume(state.volume);
 }

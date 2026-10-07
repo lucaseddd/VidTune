@@ -9,6 +9,11 @@
   const siteHost = globalThis.location?.hostname ?? '';
   let desiredSpeed = 1;
   let desiredVolume = 1;
+  let volumeManaged = false;
+  let activeBoostVideo = null;
+  let boostError = null;
+  const audioRoutes = new WeakMap();
+  const pendingRoutes = new WeakMap();
   let hasSiteProfile = false;
   let speedStep = 0.1;
   let seekSeconds = 10;
@@ -36,7 +41,7 @@
     if (value == null || value === '') return 1;
     const number = Number(value);
     return Number.isFinite(number)
-      ? Math.round(Math.max(0, Math.min(1, number)) * 10000) / 10000
+      ? Math.round(Math.max(0, Math.min(3, number)) * 10000) / 10000
       : 1;
   }
 
@@ -60,7 +65,81 @@
 
   function apply(video, speed = desiredSpeed) {
     if (video && Math.abs(video.playbackRate - speed) > 0.001) video.playbackRate = speed;
-    if (video && desiredVolume !== 1 && Math.abs(video.volume - desiredVolume) > 0.00005) video.volume = desiredVolume;
+  }
+
+  function canRouteAudio(video) {
+    if (video.srcObject) return true;
+    const source = video.currentSrc || video.src;
+    if (!source) return false;
+    try {
+      const url = new URL(source, document.baseURI);
+      return url.protocol === 'data:' || url.origin === location.origin || Boolean(video.crossOrigin);
+    } catch { return false; }
+  }
+
+  async function audioRoute(video) {
+    if (audioRoutes.has(video)) return audioRoutes.get(video);
+    if (pendingRoutes.has(video)) return pendingRoutes.get(video);
+    if (!canRouteAudio(video)) return null;
+    const task = (async () => {
+      const AudioContextClass = globalThis.AudioContext ?? globalThis.webkitAudioContext;
+      if (!AudioContextClass) return null;
+      let context;
+      try {
+        context = new AudioContextClass();
+        let timeout;
+        try {
+          await Promise.race([
+            context.resume(),
+            new Promise((resolve) => { timeout = setTimeout(resolve, 500); })
+          ]);
+        } finally { clearTimeout(timeout); }
+        if (context.state !== 'running') throw new Error('Audio context is suspended');
+        const gain = context.createGain();
+        const compressor = context.createDynamicsCompressor();
+        compressor.threshold.value = -12;
+        compressor.knee.value = 6;
+        compressor.ratio.value = 12;
+        compressor.attack.value = 0.003;
+        compressor.release.value = 0.25;
+        gain.connect(compressor);
+        compressor.connect(context.destination);
+        const source = context.createMediaElementSource(video);
+        source.connect(gain);
+        const route = { context, gain, compressor, mode: 'boost' };
+        audioRoutes.set(video, route);
+        return route;
+      } catch {
+        await context?.close().catch(() => {});
+        return null;
+      }
+    })();
+    pendingRoutes.set(video, task);
+    try { return await task; }
+    finally { pendingRoutes.delete(video); }
+  }
+
+  function routeNative(video, volume) {
+    const route = audioRoutes.get(video);
+    if (route) {
+      route.gain.gain.value = 1;
+      if (route.mode !== 'native') {
+        route.gain.disconnect();
+        route.gain.connect(route.context.destination);
+        route.mode = 'native';
+      }
+    }
+    if (Math.abs(video.volume - volume) > 0.00005) video.volume = volume;
+  }
+
+  function routeBoost(video, route, volume) {
+    if (route.mode !== 'boost') {
+      route.gain.disconnect();
+      route.gain.connect(route.compressor);
+      route.mode = 'boost';
+    }
+    if (video.volume !== 1) video.volume = 1;
+    route.gain.gain.setValueAtTime(volume, route.context.currentTime);
   }
 
   function indicatorControlsVisible() {
@@ -158,17 +237,46 @@
     changeTimer = setTimeout(() => { changeVisible = false; updateIndicator(); }, 1400);
   }
 
-  function applyToMain() {
+  async function applyToMain() {
     const video = mainVideo();
+    if (activeBoostVideo && activeBoostVideo !== video) {
+      routeNative(activeBoostVideo, 1);
+      activeBoostVideo = null;
+    }
     bindIndicator(video);
     apply(video);
+    if (video && desiredVolume > 1) {
+      if (video.paused && !audioRoutes.has(video)) {
+        routeNative(video, 1);
+        boostError = null;
+        updateIndicator();
+        return;
+      }
+      const requestedVolume = desiredVolume;
+      const route = await audioRoute(video);
+      if (requestedVolume !== desiredVolume || video !== mainVideo()) return applyToMain();
+      if (route) {
+        routeBoost(video, route, desiredVolume);
+        activeBoostVideo = video;
+        boostError = null;
+      } else {
+        routeNative(video, 1);
+        boostError = 'Boost unavailable for this video';
+      }
+    } else if (video && (volumeManaged || audioRoutes.has(video))) {
+      routeNative(video, desiredVolume);
+      if (activeBoostVideo === video) activeBoostVideo = null;
+      boostError = null;
+    } else if (!video) {
+      boostError = null;
+    }
     updateIndicator();
   }
 
   function onMediaEvent(event) {
     if (event.target?.localName !== 'video') return;
     if (event.type === 'play') lastActiveVideo = event.target;
-    applyToMain();
+    applyToMain().catch(() => {});
   }
 
   function onMutations(mutations) {
@@ -180,7 +288,7 @@
     );
     if (!hasVideoChange) return;
     scanQueued = true;
-    queueMicrotask(() => { scanQueued = false; applyToMain(); });
+    queueMicrotask(() => { scanQueued = false; applyToMain().catch(() => {}); });
   }
 
   function updateMonitoring() {
@@ -206,7 +314,9 @@
     return {
       count: videos().length,
       speed: video ? normalize(video.playbackRate) : desiredSpeed,
-      volume: video ? normalizeVolume(video.muted ? 0 : video.volume) : desiredVolume,
+      volume: video ? normalizeVolume(video.muted ? 0 : activeBoostVideo === video || (desiredVolume > 1 && video.paused && !boostError) ? desiredVolume : video.volume) : desiredVolume,
+      boostUnavailable: Boolean(video && desiredVolume > 1 && boostError),
+      boostPending: Boolean(video && desiredVolume > 1 && video.paused && !audioRoutes.has(video)),
       hasVideo: Boolean(video),
       playing: Boolean(video && !video.paused && !video.ended)
     };
@@ -215,7 +325,7 @@
   async function setSpeed(value) {
     desiredSpeed = normalize(value);
     updateMonitoring();
-    applyToMain();
+    await applyToMain();
     flashIndicator();
     const { settings } = await api.storage.local.get('settings');
     const siteSpeeds = settings?.siteSpeeds ?? {};
@@ -228,11 +338,11 @@
 
   async function setVolume(value, persist) {
     desiredVolume = normalizeVolume(value);
+    volumeManaged = true;
     updateMonitoring();
     const video = mainVideo();
-    if (video && Math.abs(video.volume - desiredVolume) > 0.00005) video.volume = desiredVolume;
     if (video && desiredVolume > 0 && video.muted) video.muted = false;
-    applyToMain();
+    await applyToMain();
     if (persist) {
       const { settings } = await api.storage.local.get('settings');
       await api.storage.local.set({ settings: { ...settings, volume: desiredVolume } });
@@ -256,14 +366,15 @@
     return state();
   }
 
-  const ready = api.storage.local.get('settings').then(({ settings }) => {
+  const ready = api.storage.local.get('settings').then(async ({ settings }) => {
     hasSiteProfile = Object.hasOwn(settings?.siteSpeeds ?? {}, siteHost);
     desiredSpeed = normalize(settings?.siteSpeeds?.[siteHost] ?? settings?.speed);
     desiredVolume = normalizeVolume(settings?.volume);
+    volumeManaged = desiredVolume !== 1;
     speedStep = Number(settings?.speedStep) || 0.1;
     seekSeconds = Number(settings?.seekSeconds) || 10;
     updateMonitoring();
-    if (desiredSpeed !== 1 || desiredVolume !== 1 || hasSiteProfile) applyToMain();
+    if (desiredSpeed !== 1 || desiredVolume !== 1 || hasSiteProfile) await applyToMain();
   });
 
   api.storage.onChanged?.addListener((changes, area) => {
@@ -275,9 +386,8 @@
     const nextVolume = normalizeVolume(settings?.volume);
     if (nextVolume !== desiredVolume) {
       desiredVolume = nextVolume;
-      const video = mainVideo();
-      if (video) video.volume = nextVolume;
-      applyToMain();
+      volumeManaged = true;
+      applyToMain().catch(() => {});
     }
     updateMonitoring();
   });

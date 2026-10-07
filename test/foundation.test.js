@@ -26,10 +26,13 @@ test('volume slider gives fine control near zero and remains reversible', () => 
   assert.equal(positionToVolume(10), 0.01);
   assert.equal(positionToVolume(50), 0.25);
   assert.equal(positionToVolume(100), 1);
+  assert.equal(positionToVolume(150), 2);
+  assert.equal(positionToVolume(200), 3);
   assert.equal(volumeToPosition(0.01), 10);
+  assert.equal(volumeToPosition(2), 150);
   assert.equal(formatVolume(0.0001), '0.01%');
   assert.equal(formatVolume(0.075), '7.5%');
-  assert.equal(normalizeVolume(2), 1);
+  assert.equal(normalizeVolume(4), 3);
   assert.equal(normalizeVolume(-1), 0);
 });
 

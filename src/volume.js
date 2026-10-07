@@ -2,17 +2,22 @@ export function normalizeVolume(value) {
   if (value == null || value === '') return 1;
   const number = Number(value);
   return Number.isFinite(number)
-    ? Math.round(Math.max(0, Math.min(1, number)) * 10000) / 10000
+    ? Math.round(Math.max(0, Math.min(3, number)) * 10000) / 10000
     : 1;
 }
 
 export function positionToVolume(position) {
-  const fraction = Math.max(0, Math.min(100, Number(position) || 0)) / 100;
-  return normalizeVolume(fraction * fraction);
+  const point = Math.max(0, Math.min(200, Number(position) || 0));
+  return point <= 100
+    ? normalizeVolume((point / 100) ** 2)
+    : normalizeVolume(1 + (point - 100) / 50);
 }
 
 export function volumeToPosition(volume) {
-  return Math.round(Math.sqrt(normalizeVolume(volume)) * 100);
+  const normalized = normalizeVolume(volume);
+  return normalized <= 1
+    ? Math.round(Math.sqrt(normalized) * 100)
+    : Math.round(100 + (normalized - 1) * 50);
 }
 
 export function formatVolume(volume) {

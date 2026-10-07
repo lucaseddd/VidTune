@@ -47,6 +47,9 @@ try {
   if (!(await driver.findElement({ id: 'speed-value' }).isDisplayed())) throw new Error('Popup speed control did not render');
   await driver.wait(async () => (await driver.findElement({ id: 'video-summary' }).getText()) === '1 video found',
     5000, 'Extension tab did not locate the video tab');
+  if (await driver.findElement({ id: 'volume-slider' }).getAttribute('value') !== '100') {
+    throw new Error('100% volume did not start at the slider midpoint');
+  }
   const spinnerStep = await driver.executeScript("const input = document.getElementById('manual-value'); input.stepUp(); return input.value;");
   if (spinnerStep !== '1.1') throw new Error(`Manual spinner used the wrong step: ${spinnerStep}`);
 
@@ -88,6 +91,17 @@ try {
     10000, `${id} did not reach ${volume} volume`);
   }
 
+  await driver.switchTo().window(pageHandle);
+  await driver.executeScript("const video = document.getElementById('main'); video.src = arguments[0]; video.loop = true", wavUrl);
+  await driver.wait(async () => await driver.executeScript("return document.getElementById('main').readyState >= 1"),
+    5000, 'Local media did not load for boost testing');
+  await driver.findElement({ id: 'main' }).click();
+  await driver.executeScript("const video = document.getElementById('main'); video.muted = true; return video.play()");
+  await driver.wait(async () => await driver.executeScript("return !document.getElementById('main').paused"),
+    5000, 'Local media did not start for boost testing');
+  await driver.executeScript("document.getElementById('main').muted = false");
+  await driver.switchTo().window(extensionHandle);
+
   await setPopupVolume(1, '0.01%');
   await driver.switchTo().window(pageHandle);
   await waitForVolume('main', 0.0001);
@@ -96,6 +110,17 @@ try {
   await driver.switchTo().window(pageHandle);
   await waitForVolume('main', 0.25);
   await driver.switchTo().window(extensionHandle);
+  await setPopupVolume(150, '200%');
+  await driver.wait(async () => (await control({ type: 'GET_STATE' })).volume === 2,
+    5000, 'Firefox did not activate 200% audio boost');
+  await setPopupVolume(200, '300%');
+  await driver.wait(async () => (await control({ type: 'GET_STATE' })).volume === 3,
+    5000, 'Firefox did not activate 300% audio boost');
+  await setPopupVolume(100, '100%');
+  await driver.switchTo().window(pageHandle);
+  await waitForVolume('main', 1);
+  await driver.switchTo().window(extensionHandle);
+  await setPopupVolume(50, '25%');
 
   const changed = await control({ type: 'SET_SPEED', speed: 1.5 });
   if (changed.speed !== 1.5 || changed.count !== 1) throw new Error('Firefox did not apply speed to the main video');
@@ -199,7 +224,36 @@ try {
   await driver.navigate().refresh();
   await waitForRate('main', 1.7);
   await waitForVolume('main', 0.25);
-  console.log('Firefox passed: low-volume slider, saved volume on replacement and reload, settings, shortcuts, seek, site speed and indicator.');
+  await driver.switchTo().window(extensionHandle);
+  await setPopupVolume(200, '300%');
+  await driver.switchTo().window(pageHandle);
+  await driver.executeScript(`
+    document.getElementById('main').remove();
+    const video = document.createElement('video');
+    video.id = 'boost-replacement';
+    video.width = 640;
+    video.height = 360;
+    video.controls = true;
+    video.loop = true;
+    video.src = arguments[0];
+    document.body.append(video);
+  `, wavUrl);
+  await driver.findElement({ id: 'boost-replacement' }).click();
+  await driver.executeScript("const video = document.getElementById('boost-replacement'); video.muted = true; return video.play()");
+  await driver.executeScript("document.getElementById('boost-replacement').muted = false");
+  await driver.switchTo().window(extensionHandle);
+  await driver.wait(async () => (await control({ type: 'GET_STATE' })).volume === 3,
+    5000, 'Boost did not follow a dynamically replaced video');
+  await driver.switchTo().window(pageHandle);
+  await driver.navigate().refresh();
+  await driver.executeScript("const video = document.getElementById('main'); video.src = arguments[0]; video.loop = true", wavUrl);
+  await driver.findElement({ id: 'main' }).click();
+  await driver.executeScript("const video = document.getElementById('main'); video.muted = true; return video.play()");
+  await driver.executeScript("document.getElementById('main').muted = false");
+  await driver.switchTo().window(extensionHandle);
+  await driver.wait(async () => (await control({ type: 'GET_STATE' })).volume === 3,
+    5000, 'Saved boost did not apply after reload');
+  console.log('Firefox passed: centered slider, 0.01% to 300% boost, replacement, reload, native reset, settings and shortcuts.');
 } finally {
   if (driver) await driver.quit();
   await new Promise((done) => server.close(done));

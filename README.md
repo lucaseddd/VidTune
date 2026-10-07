@@ -1,6 +1,6 @@
 # VidTune
 
-**VidTune — Speed, Volume & PiP** is a lightweight browser extension under development. Version 0.4.0 adds native video volume control. Picture in Picture is planned for a later milestone.
+**VidTune — Speed, Volume & PiP** is a lightweight browser extension under development. Version 0.5.0 adds optional volume boost up to 300%. Picture in Picture is planned for a later milestone.
 
 ## Speed controls
 
@@ -16,9 +16,10 @@
 
 ## Volume control
 
-- Drag the popup slider from 0% to 100%. It uses the video's native volume control, without amplification or audio processing.
-- The slider gives more room to quiet levels: position 1 is 0.01%, position 10 is 1%, and position 50 is 25%. The displayed percentage is the actual volume.
-- Volume is saved locally and applied to new videos, including videos replaced by a site without navigation. Adjusting the slider above 0% also unmutes a muted video.
+- The slider starts at 100% in the center. Move left toward 0%, or right for up to 300% boost. The 0%–100% half keeps fine control near silence: position 1 is 0.01%, position 10 is 1%, and position 50 is 25%.
+- Up to 100%, VidTune uses the video's native volume control. Above 100%, it creates a Web Audio gain path with compression for the selected video. That path is created only after boost is requested and the video starts playing.
+- Volume is saved locally and applied to new videos, including videos replaced by a site without navigation. Adjusting the slider above 0% also unmutes a muted video. A boosted video can be returned to native volume by moving the slider to 100% or lower.
+- Some cross-origin media cannot safely be routed through Web Audio. VidTune keeps native playback at 100% and shows **Boost unavailable for this video** on those videos. A video paused before boost shows **Play video to enable boost**.
 
 ## Development
 
@@ -40,6 +41,6 @@ The temporary Firefox installation is removed when Firefox restarts. Rebuild and
 
 ## Privacy and permissions
 
-VidTune stores settings locally in browser storage. It makes no network requests and has no analytics. A small content script runs on web pages to hear configured single-letter shortcuts and check whether a saved site speed or volume should be applied; these keys cannot be registered through the browser commands API. This requires access to web pages through the manifest's `<all_urls>` content-script match. The video controller is injected only when the popup or a shortcut is used, or when a saved site speed or volume needs to be applied. `activeTab` and `scripting` load the controller; `storage` saves preferences. The background script runs only for extension events. At 1× and 100% volume without a site profile, the controller has no document-wide video mutation observer or video lifecycle listeners; YouTube's player class observer may remain active for the indicator.
+VidTune stores settings locally in browser storage. It makes no network requests and has no analytics. A small content script runs on web pages to hear configured single-letter shortcuts and check whether a saved site speed or volume should be applied; these keys cannot be registered through the browser commands API. This requires access to web pages through the manifest's `<all_urls>` content-script match. The video controller is injected only when the popup or a shortcut is used, or when a saved site speed or volume needs to be applied. `activeTab` and `scripting` load the controller; `storage` saves preferences. The background script runs only for extension events. At 1× and 100% volume without a site profile, the controller has no document-wide video mutation observer or video lifecycle listeners; YouTube's player class observer may remain active for the indicator. No new permissions were needed for boost.
 
-Browser internal pages and some restricted pages do not allow scanning. The popup reports this without interrupting browsing. The controller checks the active document; cross-origin frames are not included in v0.4.0. Exact frame stepping is deferred because the generic web video API does not provide a reliable cross-browser next-frame seek operation.
+Browser internal pages and some restricted pages do not allow scanning. The popup reports this without interrupting browsing. The controller checks the active document; cross-origin frames are not included in v0.5.0. A Web Audio path created for a boosted video remains attached to that media element while the page is open, even after returning to native volume. Exact frame stepping is deferred because the generic web video API does not provide a reliable cross-browser next-frame seek operation.

@@ -146,3 +146,22 @@ test('volume preview applies without saving and explicit adjustment unmutes', as
   await page.send({ type: 'SET_VOLUME', volume: 0 });
   assert.equal(page.settings.volume, 0);
 });
+
+test('unavailable boost keeps native audio at 100% and reports the limitation', async () => {
+  const video = fakeVideo({ playing: true });
+  const page = fixture(1, [video]);
+  const result = await page.send({ type: 'SET_VOLUME', volume: 3 });
+  assert.equal(result.volume, 1);
+  assert.equal(result.boostUnavailable, true);
+  assert.equal(video.volume, 1);
+  assert.equal(page.settings.volume, 3);
+});
+
+test('boost waits for a paused video without delaying the popup response', async () => {
+  const video = fakeVideo();
+  const page = fixture(1, [video]);
+  const result = await page.send({ type: 'SET_VOLUME', volume: 3 });
+  assert.equal(result.volume, 3);
+  assert.equal(result.boostPending, true);
+  assert.equal(video.volume, 1);
+});
