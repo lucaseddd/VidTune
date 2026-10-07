@@ -119,9 +119,10 @@
           if (context.state !== 'running') throw new Error('Audio context is suspended');
           const gain = context.createGain();
           const compressor = context.createDynamicsCompressor();
-          compressor.threshold.value = -12;
-          compressor.knee.value = 6;
-          compressor.ratio.value = 12;
+          // Limit only peaks near full scale, leaving the requested gain audible.
+          compressor.threshold.value = -1;
+          compressor.knee.value = 0;
+          compressor.ratio.value = 20;
           compressor.attack.value = 0.003;
           compressor.release.value = 0.25;
           gain.connect(compressor);

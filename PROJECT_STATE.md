@@ -1,8 +1,8 @@
 # Project state
 
-- Current version: 0.5.2
+- Current version: 0.5.3
 - Current branch: main
-- Current checkpoint: `v0.5.2`, locally validated; private remote `origin` at `https://github.com/lucaseddd/VidTune.git`. Live-site confirmation remains pending.
+- Current checkpoint: `v0.5.3`, locally validated; private remote `origin` at `https://github.com/lucaseddd/VidTune.git`. Live-site confirmation remains pending.
 - Architecture: native MV3 popup and separate `options.html` page; `src/browser.js` browser API adapter, `src/settings.js` validated local preferences, `src/shortcuts.js` configurable page key listener and saved-preference trigger, `src/content.js` on-demand video controller, native volume, lazy Web Audio boost, seek handler and speed indicator, `src/popup.js` compact controls, `src/volume.js` slider mapping, `src/options.js` advanced settings. Build outputs are `dist/` for Firefox and `dist-chromium/` for Chromium.
 - Build: `npm ci`, `npm run build`; package: `npm run package`.
 - Validation: `npm run lint`, `npm test`, `npm run lint:firefox`, `npm run test:firefox` after build.
@@ -11,3 +11,5 @@
 - Known issues: restricted pages and blank/srcdoc frames cannot be controlled. Accessible cross-origin web frames are supported. v0.5.2 can reconnect non-CORS media when the server permits CORS, preserving playback state; denied requests retain native 100%. This can briefly interrupt playback. A media element routed into Web Audio keeps its graph while the page remains open. Generic player control visibility is estimated from pointer activity; a fullscreen video element cannot contain the indicator. Exact frame stepping is deferred because the available API is deprecated and nonstandard. The prepared RedeCanais player used cross-origin media without a crossorigin attribute. Its server accepted an anonymous CORS HEAD check. The session expired before applying the fix; live-site boost is still unverified. Local Firefox tests cover recovery, failed reload rollback and denied CORS. Earlier live-site automation on other hosts was rejected by approval review.
 - Validation: 15 unit tests, source lint, Firefox extension lint (zero warnings/errors), and Firefox integration passed. Both packages generated. Firefox was reopened on the supplied page with uBlock Origin 1.75.0 and VidTune 0.5.2 verified active; the video needs to be prepared again by the user.
 - Exact next task: test boost on the reopened RedeCanais page after the user prepares the player. Start Phase 6 only after the user explicitly authorizes it.
+
+- v0.5.3: user reported weak boost. Changed compression from −12 dB / knee 6 / ratio 12 to −1 dB / knee 0 / ratio 20. Firefox rendered-audio measurement confirms 2.00× and 3.00× RMS for a moderate test tone. Existing integration suite passed. Current user task is listening to the stronger boost; do not start PiP.

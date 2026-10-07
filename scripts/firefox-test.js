@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { Builder } from 'selenium-webdriver';
 import firefox from 'selenium-webdriver/firefox.js';
@@ -49,6 +49,33 @@ try {
   const uuid = await driver.executeScript("return JSON.parse(Services.prefs.getStringPref('extensions.webextensions.uuids'))['vidtune@vidtune.local'];");
   await driver.setContext(firefox.Context.CONTENT);
   await driver.get(`http://127.0.0.1:${server.address().port}/`);
+  const controller = await readFile('src/content.js', 'utf8');
+  const compressorSettings = Object.fromEntries([...controller.matchAll(/compressor\.(\w+)\.value = (-?[\d.]+);/g)]
+    .map((match) => [match[1], Number(match[2])]));
+  const measured = await driver.executeAsyncScript(`
+    const settings = arguments[0], done = arguments[arguments.length - 1];
+    async function measure(volume) {
+      const context = new OfflineAudioContext(1, 48000, 48000);
+      const buffer = context.createBuffer(1, 48000, 48000);
+      const samples = buffer.getChannelData(0);
+      for (let i = 0; i < samples.length; i++) samples[i] = 0.2 * Math.sin(2 * Math.PI * 440 * i / 48000);
+      const source = context.createBufferSource(); source.buffer = buffer;
+      const gain = context.createGain(); gain.gain.value = volume;
+      const compressor = context.createDynamicsCompressor();
+      for (const [key, value] of Object.entries(settings)) compressor[key].value = value;
+      source.connect(gain); gain.connect(compressor); compressor.connect(context.destination);
+      source.start();
+      const output = (await context.startRendering()).getChannelData(0);
+      let energy = 0;
+      for (let i = 24000; i < output.length; i++) energy += output[i] ** 2;
+      return Math.sqrt(energy / 24000);
+    }
+    Promise.all([1, 2, 3].map(measure)).then(done, error => done({error: String(error)}));
+  `, compressorSettings);
+  if (!Array.isArray(measured) || measured[1] / measured[0] < 1.9 || measured[2] / measured[0] < 2.85) {
+    throw new Error(`Compressor suppressed the requested audio gain: ${JSON.stringify(measured)}`);
+  }
+  console.log(`Measured audio gain: ${(measured[1] / measured[0]).toFixed(2)}x and ${(measured[2] / measured[0]).toFixed(2)}x`);
   const pageHandle = await driver.getWindowHandle();
   await driver.switchTo().newWindow('tab');
   const extensionHandle = await driver.getWindowHandle();

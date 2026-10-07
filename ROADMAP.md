@@ -2,9 +2,9 @@
 
 ## Current checkpoint
 
-- Version: 0.5.2
+- Version: 0.5.3
 - Phase: 5 — Advanced Audio / Volume Boost
-- Status: v0.5.2 compatibility fix validated locally; live-site confirmation pending
+- Status: v0.5.3 gain correction validated in Firefox; user listening test pending
 
 ## Completed
 
@@ -56,6 +56,11 @@
 - Once an element is routed into Web Audio, its graph remains connected while that page is open, including at native volume; the browser cannot reliably undo the source association. Compression reduces clipping risk but cannot repair audio already distorted by its source.
 - Live-site automation for YouTube, Vimeo, Twitch and Reddit was rejected by automatic approval review because it would widen test host access. This needs explicit user authorization before automation can run.
 - `npm audit --omit=dev` found no runtime vulnerabilities. Three high-severity advisories remain in the Mozilla `web-ext` development dependency chain; they are not included in the browser packages.
+
+## v0.5.3 test results
+
+- The previous −12 dB compressor threshold reduced much of the requested boost. The new −1 dB threshold, hard knee and 20:1 ratio limit near-full-scale peaks while retaining ordinary gain.
+- Firefox OfflineAudioContext measured 2.00× and 3.00× RMS gain for a 0.2-amplitude test tone using the production compressor settings. Existing Firefox integration tests, including CORS recovery and rollback, passed.
 
 ## v0.5.2 test results
 
