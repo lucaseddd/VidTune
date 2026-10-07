@@ -2,9 +2,9 @@
 
 - Firefox window policy: reuse the existing manual test session in `work/manual-session.json`; keep only one visible VidTune test window with uBlock. Close obsolete test windows when replacing a session. Run automated Firefox checks headlessly. Do not create another visible window for an update or disturb the prepared player unnecessarily.
 
-- Current version: 0.5.3
+- Current version: 0.5.4
 - Current branch: main
-- Current checkpoint: `v0.5.3`, locally validated; private remote `origin` at `https://github.com/lucaseddd/VidTune.git`. Live-site confirmation remains pending.
+- Current checkpoint: `v0.5.4`, locally validated; private remote `origin` at `https://github.com/lucaseddd/VidTune.git`. Live-site confirmation remains pending.
 - Architecture: native MV3 popup and separate `options.html` page; `src/browser.js` browser API adapter, `src/settings.js` validated local preferences, `src/shortcuts.js` configurable page key listener and saved-preference trigger, `src/content.js` on-demand video controller, native volume, lazy Web Audio boost, seek handler and speed indicator, `src/popup.js` compact controls, `src/volume.js` slider mapping, `src/options.js` advanced settings. Build outputs are `dist/` for Firefox and `dist-chromium/` for Chromium.
 - Build: `npm ci`, `npm run build`; package: `npm run package`.
 - Validation: `npm run lint`, `npm test`, `npm run lint:firefox`, `npm run test:firefox` after build.
@@ -15,3 +15,5 @@
 - Exact next task: test boost on the reopened RedeCanais page after the user prepares the player. Start Phase 6 only after the user explicitly authorizes it.
 
 - v0.5.3: user reported weak boost. Changed compression from −12 dB / knee 6 / ratio 12 to −1 dB / knee 0 / ratio 20. Firefox rendered-audio measurement confirms 2.00× and 3.00× RMS for a moderate test tone. Existing integration suite passed. Current user task is listening to the stronger boost; do not start PiP.
+
+- v0.5.4: user wants 300% to be extreme. Above 100%, gain is now 4 ** (volume - 1), reaching 16× at 300%; labels denote boost scale, not linear signal amplitude. Headless Firefox measured 4.00× / 16.00×, and integration tests passed. Keep the single existing manual Firefox session; refresh only to replace its old audio graph.

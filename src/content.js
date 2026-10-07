@@ -205,6 +205,7 @@
     function routeNative(video, volume) {
       const route = audioRoutes.get(video);
       if (route) {
+        route.gain.gain.cancelScheduledValues(route.context.currentTime);
         route.gain.gain.value = 1;
         if (route.mode !== 'native') {
           route.gain.disconnect();
@@ -222,7 +223,9 @@
         route.mode = 'boost';
       }
       if (video.volume !== 1) video.volume = 1;
-      route.gain.gain.setValueAtTime(volume, route.context.currentTime);
+      // The upper slider is a boost scale: 200% = 4x, 300% = 16x (+24 dB).
+      const gain = 4 ** (volume - 1);
+      route.gain.gain.setTargetAtTime(gain, route.context.currentTime, 0.03);
     }
 
     function indicatorControlsVisible() {

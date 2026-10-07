@@ -2,9 +2,9 @@
 
 ## Current checkpoint
 
-- Version: 0.5.3
+- Version: 0.5.4
 - Phase: 5 — Advanced Audio / Volume Boost
-- Status: v0.5.3 gain correction validated in Firefox; user listening test pending
+- Status: v0.5.4 extreme boost validated in Firefox; user listening test pending
 
 ## Completed
 
@@ -56,6 +56,11 @@
 - Once an element is routed into Web Audio, its graph remains connected while that page is open, including at native volume; the browser cannot reliably undo the source association. Compression reduces clipping risk but cannot repair audio already distorted by its source.
 - Live-site automation for YouTube, Vimeo, Twitch and Reddit was rejected by automatic approval review because it would widen test host access. This needs explicit user authorization before automation can run.
 - `npm audit --omit=dev` found no runtime vulnerabilities. Three high-severity advisories remain in the Mozilla `web-ext` development dependency chain; they are not included in the browser packages.
+
+## v0.5.4 test results
+
+- User requested 300% to be an extreme reserve. The boost scale now uses exponential gain: 150%=2×, 200%=4×, 250%=8×, 300%=16×. Native 0–100% mapping and the centered slider are retained. Gain changes are smoothed, and returning to native volume cancels pending gain automation.
+- Headless Firefox measured 4.00× and 16.00× RMS gain on a quiet test tone using the production gain expression and compressor settings. The existing integration suite passed.
 
 ## v0.5.3 test results
 

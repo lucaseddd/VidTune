@@ -1,6 +1,6 @@
 # VidTune
 
-**VidTune — Speed, Volume & PiP** is a lightweight browser extension under development. Version 0.5.3 preserves the requested audio gain up to 300%. Picture in Picture is planned for a later milestone.
+**VidTune — Speed, Volume & PiP** is a lightweight browser extension under development. Version 0.5.4 adds an extreme progressive boost scale up to 300%. Picture in Picture is planned for a later milestone.
 
 ## Speed controls
 
@@ -16,10 +16,10 @@
 
 ## Volume control
 
-Videos inside accessible web iframes are supported, including cross-origin players. Reload existing pages after updating to v0.5.3. The popup chooses the playing video first, then the largest video. Keyboard shortcuts work while the video frame has focus.
+Videos inside accessible web iframes are supported, including cross-origin players. Reload existing pages after updating to v0.5.4. The popup chooses the playing video first, then the largest video. Keyboard shortcuts work while the video frame has focus.
 
 - The slider starts at 100% in the center. Move left toward 0%, or right for up to 300% boost. The 0%–100% half keeps fine control near silence: position 1 is 0.01%, position 10 is 1%, and position 50 is 25%.
-- Up to 100%, VidTune uses the video's native volume control. Above 100%, it creates a Web Audio gain path with peak compression for the selected video. Compression begins near full scale (−1 dB), so normal audio retains the requested amplification instead of being heavily reduced. The 300% setting means up to three times the signal amplitude; perceived loudness depends on the source. That path is created only after boost is requested and the video starts playing.
+- Up to 100%, VidTune uses the video's native volume control. Above 100%, it creates a Web Audio gain path with peak compression for the selected video. Compression begins near full scale (−1 dB), so normal audio retains the requested amplification instead of being heavily reduced. Above 100%, the percentage is a progressive boost scale: 150% applies 2× gain, 200% applies 4×, 250% applies 8×, and 300% applies up to 16× (+24 dB). Gain transitions are smoothed over 30 ms. Peak compression can reduce the maximum on loud sources; perceived loudness depends on the source and output device. That path is created only after boost is requested and the video starts playing.
 - Volume is saved locally and applied to new videos, including videos replaced by a site without navigation. Adjusting the slider above 0% also unmutes a muted video. A boosted video can be returned to native volume by moving the slider to 100% or lower.
 - When cross-origin media was loaded without CORS, VidTune checks whether its server permits audio processing. If it does, the video reconnects with CORS enabled, restoring its position, playback state and speed. This can briefly interrupt playback. A failed reconnection restores the original loading mode. Protected media and servers that reject the compatibility check keep native audio.
 - Some cross-origin media cannot safely be routed through Web Audio. VidTune keeps native playback at 100% and shows **Boost unavailable for this video** on those videos. A video paused before boost shows **Play video to enable boost**.
@@ -38,7 +38,7 @@ npm run package
 npm run firefox
 ```
 
-`npm run firefox` opens a temporary Firefox development window with VidTune and uBlock Origin loaded. Pass a URL after `--` to open a test page. The launcher and integration tests reuse the uBlock package already installed in a Windows Firefox profile; on other systems, set `UBLOCK_XPI` to its path. They stop if that package is unavailable. Alternatively, load `dist/manifest.json` through `about:debugging` → **This Firefox** → **Load Temporary Add-on**. In Chromium, use **Load unpacked** and select `dist-chromium/`. `npm run test:firefox` opens and closes its own Firefox test window.
+`npm run firefox` opens a temporary Firefox development window with VidTune and uBlock Origin loaded. Pass a URL after `--` to open a test page. The launcher and integration tests reuse the uBlock package already installed in a Windows Firefox profile; on other systems, set `UBLOCK_XPI` to its path. They stop if that package is unavailable. Alternatively, load `dist/manifest.json` through `about:debugging` → **This Firefox** → **Load Temporary Add-on**. In Chromium, use **Load unpacked** and select `dist-chromium/`. `npm run test:firefox` runs headlessly. The manual launcher reuses an existing test window when available.
 
 The temporary Firefox installation is removed when Firefox restarts. Rebuild and reload after source changes.
 

@@ -52,15 +52,17 @@ try {
   const controller = await readFile('src/content.js', 'utf8');
   const compressorSettings = Object.fromEntries([...controller.matchAll(/compressor\.(\w+)\.value = (-?[\d.]+);/g)]
     .map((match) => [match[1], Number(match[2])]));
+  const gainExpression = controller.match(/function routeBoost[\s\S]*?const gain = ([^;]+);/)[1];
   const measured = await driver.executeAsyncScript(`
     const settings = arguments[0], done = arguments[arguments.length - 1];
     async function measure(volume) {
       const context = new OfflineAudioContext(1, 48000, 48000);
       const buffer = context.createBuffer(1, 48000, 48000);
       const samples = buffer.getChannelData(0);
-      for (let i = 0; i < samples.length; i++) samples[i] = 0.2 * Math.sin(2 * Math.PI * 440 * i / 48000);
+      for (let i = 0; i < samples.length; i++) samples[i] = 0.02 * Math.sin(2 * Math.PI * 440 * i / 48000);
       const source = context.createBufferSource(); source.buffer = buffer;
-      const gain = context.createGain(); gain.gain.value = volume;
+      const gain = context.createGain();
+      gain.gain.setTargetAtTime(${gainExpression}, context.currentTime, 0.03);
       const compressor = context.createDynamicsCompressor();
       for (const [key, value] of Object.entries(settings)) compressor[key].value = value;
       source.connect(gain); gain.connect(compressor); compressor.connect(context.destination);
@@ -72,7 +74,7 @@ try {
     }
     Promise.all([1, 2, 3].map(measure)).then(done, error => done({error: String(error)}));
   `, compressorSettings);
-  if (!Array.isArray(measured) || measured[1] / measured[0] < 1.9 || measured[2] / measured[0] < 2.85) {
+  if (!Array.isArray(measured) || Math.abs(measured[1] / measured[0] - 4) > 0.1 || Math.abs(measured[2] / measured[0] - 16) > 0.2) {
     throw new Error(`Compressor suppressed the requested audio gain: ${JSON.stringify(measured)}`);
   }
   console.log(`Measured audio gain: ${(measured[1] / measured[0]).toFixed(2)}x and ${(measured[2] / measured[0]).toFixed(2)}x`);
