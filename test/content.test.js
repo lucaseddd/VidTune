@@ -59,6 +59,30 @@ test('saved speed targets the playing video and follows a dynamic replacement', 
   assert.equal(replacement.playbackRate, 1.5);
 });
 
+test('hidden playing media does not steal controls from the visible player', async () => {
+  const hidden = fakeVideo({ playing: true, width: 0, height: 0 });
+  const visible = fakeVideo();
+  const page = fixture(1, [hidden, visible]);
+  await page.send({ type: 'SET_SPEED', speed: 1.5 });
+  assert.equal(visible.playbackRate, 1.5);
+  assert.equal(hidden.playbackRate, 1);
+});
+
+test('player speed resets are corrected with a bounded retry budget', async () => {
+  const video = fakeVideo({ playing: true });
+  const page = fixture(1.5, [video]);
+  await page.send({ type: 'GET_STATE' });
+  for (let i = 0; i < 6; i++) {
+    video.playbackRate = 1;
+    page.listeners.get('ratechange')({ type: 'ratechange', target: video });
+    assert.equal(video.playbackRate, i < 5 ? 1.5 : 1);
+  }
+  await page.send({ type: 'SET_SPEED', speed: 2 });
+  video.playbackRate = 1;
+  page.listeners.get('ratechange')({ type: 'ratechange', target: video });
+  assert.equal(video.playbackRate, 2);
+});
+
 test('shortcut-style messages persist speed and reset idle monitoring', async () => {
   const video = fakeVideo({ playing: true });
   const page = fixture(1, [video]);

@@ -2,13 +2,35 @@
 (() => {
   if (globalThis.__vidTuneBootstrap) return;
   globalThis.__vidTuneBootstrap = true;
+  let cachedTree;
+  function mediaTree() {
+    if (cachedTree) return cachedTree;
+    const roots = [document];
+    const videos = [];
+    for (let index = 0; index < roots.length; index++) {
+      const root = roots[index];
+      videos.push(...root.querySelectorAll('video'));
+      for (const element of root.querySelectorAll('*')) {
+        if (element.shadowRoot) roots.push(element.shadowRoot);
+      }
+    }
+    cachedTree = { roots, videos: videos.filter((video) => video.isConnected) };
+    queueMicrotask(() => { cachedTree = null; });
+    return cachedTree;
+  }
+  globalThis.__vidTuneFindVideos = () => mediaTree().videos;
   const bootstrapApi = globalThis.browser ?? globalThis.chrome;
   let handleMessage;
   bootstrapApi.runtime.onMessage.addListener((message, sender, respond) => {
     if (message?.type === 'PROBE_VIDEOS') {
-      const videos = [...document.querySelectorAll('video')].filter((video) => video.isConnected);
-      const playing = videos.filter((video) => !video.paused && !video.ended);
-      const area = Math.max(0, ...(playing.length ? playing : videos).map((video) => {
+      const videos = mediaTree().videos;
+      const visible = videos.filter((video) => {
+        const rect = video.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      });
+      const candidates = visible.length ? visible : videos;
+      const playing = candidates.filter((video) => !video.paused && !video.ended);
+      const area = Math.max(0, ...(playing.length ? playing : candidates).map((video) => {
         const rect = video.getBoundingClientRect();
         return Math.max(0, rect.width) * Math.max(0, rect.height);
       }));
@@ -37,6 +59,9 @@
     const audioRoutes = new WeakMap();
     const pendingRoutes = new WeakMap();
     const failedSources = new WeakMap();
+    const rateCorrections = new WeakMap();
+    const shadowRoots = new Set();
+    const mediaEvents = ['play', 'loadedmetadata', 'loadstart', 'ratechange'];
     let hasSiteProfile = false;
     let speedStep = 0.1;
     let seekSeconds = 10;
@@ -69,14 +94,33 @@
     }
 
     function videos() {
-      return [...document.querySelectorAll('video')].filter((video) => video.isConnected);
+      const tree = mediaTree();
+      if (observer) {
+        for (const root of tree.roots.slice(1)) {
+          if (shadowRoots.has(root)) continue;
+          shadowRoots.add(root);
+          observer.observe(root, { childList: true, subtree: true });
+          for (const name of mediaEvents) root.addEventListener(name, onMediaEvent, true);
+        }
+        for (const root of shadowRoots) {
+          if (root.host.isConnected) continue;
+          for (const name of mediaEvents) root.removeEventListener(name, onMediaEvent, true);
+          shadowRoots.delete(root);
+        }
+      }
+      return tree.videos;
     }
 
     function mainVideo() {
       if (lastActiveVideo && !lastActiveVideo.isConnected) lastActiveVideo = null;
       let winner = null;
       let best = -1;
-      for (const video of videos()) {
+      const all = videos();
+      const visible = all.filter((video) => {
+        const rect = video.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      });
+      for (const video of visible.length ? visible : all) {
         const rect = video.getBoundingClientRect();
         const area = Math.max(0, rect.width) * Math.max(0, rect.height);
         const playing = !video.paused && !video.ended;
@@ -149,10 +193,20 @@
       try {
         const url = new URL(source, document.baseURI);
         if (!['http:', 'https:'].includes(url.protocol)) return false;
-        const response = await fetch(source, {
-          method: 'HEAD', mode: 'cors', credentials: 'omit', signal: AbortSignal.timeout(5000)
-        });
-        if (!response.ok || !video.isConnected || (video.currentSrc || video.src) !== source) {
+        let allowed = false;
+        for (const method of ['HEAD', 'GET']) {
+          try {
+            const response = await fetch(source, {
+              method, mode: 'cors', credentials: 'omit', signal: AbortSignal.timeout(5000),
+              ...(method === 'GET' ? { headers: { Range: 'bytes=0-0' } } : {})
+            });
+            allowed = response.ok;
+            // Stop reading immediately even when a server ignores the requested range.
+            await response.body?.cancel();
+            if (allowed) break;
+          } catch { /* Some media servers reject HEAD but accept a CORS GET. */ }
+        }
+        if (!allowed || !video.isConnected || (video.currentSrc || video.src) !== source) {
           failedSources.set(video, source);
           return false;
         }
@@ -362,6 +416,14 @@
 
     function onMediaEvent(event) {
       if (event.target?.localName !== 'video') return;
+      if (event.type === 'ratechange') {
+        if (desiredSpeed === 1 || event.target !== mainVideo() || Math.abs(event.target.playbackRate - desiredSpeed) < 0.001) return;
+        const now = Date.now();
+        const recent = (rateCorrections.get(event.target) ?? []).filter((time) => now - time < 1000);
+        // Stop contending with players that continuously override the media property.
+        if (recent.length >= 5) return;
+        rateCorrections.set(event.target, [...recent, now]);
+      }
       if (event.type === 'play') lastActiveVideo = event.target;
       applyToMain().catch(() => {});
     }
@@ -370,7 +432,8 @@
       if (scanQueued) return;
       const hasVideoChange = mutations.some(({ addedNodes, removedNodes }) =>
         [...addedNodes, ...removedNodes].some((node) =>
-          node.nodeType === 1 && (node.localName === 'video' || node.querySelector?.('video'))
+          node.nodeType === 1 && (node.localName === 'video' || node.shadowRoot || node.querySelector?.('video') ||
+            [...(node.querySelectorAll?.('*') ?? [])].some((element) => element.shadowRoot))
         )
       );
       if (!hasVideoChange) return;
@@ -380,18 +443,19 @@
 
     function updateMonitoring() {
       if ((desiredSpeed !== 1 || desiredVolume !== 1 || hasSiteProfile) && !observer) {
-        document.addEventListener('play', onMediaEvent, true);
-        document.addEventListener('loadedmetadata', onMediaEvent, true);
-        document.addEventListener('loadstart', onMediaEvent, true);
+        for (const name of mediaEvents) document.addEventListener(name, onMediaEvent, true);
         observer = new MutationObserver(onMutations);
         observer.observe(document.documentElement, { childList: true, subtree: true });
+        videos();
       } else if (desiredSpeed === 1 && desiredVolume === 1 && !hasSiteProfile && observer) {
         observer.disconnect();
         observer = null;
         lastActiveVideo = null;
-        document.removeEventListener('play', onMediaEvent, true);
-        document.removeEventListener('loadedmetadata', onMediaEvent, true);
-        document.removeEventListener('loadstart', onMediaEvent, true);
+        for (const name of mediaEvents) document.removeEventListener(name, onMediaEvent, true);
+        for (const root of shadowRoots) {
+          for (const name of mediaEvents) root.removeEventListener(name, onMediaEvent, true);
+        }
+        shadowRoots.clear();
       }
     }
 
@@ -411,6 +475,8 @@
 
     async function setSpeed(value) {
       desiredSpeed = normalize(value);
+      const video = mainVideo();
+      if (video) rateCorrections.delete(video);
       updateMonitoring();
       await applyToMain();
       flashIndicator();

@@ -42,7 +42,7 @@
       seekBackward: 'SEEK_BACKWARD', seekForward: 'SEEK_FORWARD'
     }[name];
     if (event.repeat && !['INCREASE', 'DECREASE'].includes(action)) return;
-    if (event.composedPath().some(inEditable) || !document.querySelector('video')) return;
+    if (event.composedPath().some(inEditable) || !(globalThis.__vidTuneFindVideos?.().length ?? document.querySelector('video'))) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     api.runtime.sendMessage({ type: 'VIDEO_SHORTCUT', action }).catch(() => {});

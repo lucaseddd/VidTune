@@ -26,8 +26,8 @@ wav.writeUInt32LE(48000, 40);
 const wavUrl = `data:audio/wav;base64,${wav.toString('base64')}`;
 const server = createServer((request, response) => {
   if (request.url.startsWith('/audio')) {
-    const allowed = request.url === '/audio-cors' || (request.url === '/audio-rollback' && request.method === 'HEAD');
-    response.writeHead(200, { 'content-type': 'audio/wav', 'content-length': wav.length,
+    const allowed = ['/audio-cors', '/audio-head-rejected'].includes(request.url) || (request.url === '/audio-rollback' && request.method === 'HEAD');
+    response.writeHead(request.url === '/audio-head-rejected' && request.method === 'HEAD' ? 405 : 200, { 'content-type': 'audio/wav', 'content-length': wav.length,
       ...(allowed ? { 'access-control-allow-origin': '*' } : {}) });
     response.end(request.method === 'HEAD' ? undefined : wav);
     return;
@@ -316,7 +316,8 @@ try {
   const boostedFrame = await control({ type: 'SET_VOLUME', volume: 3 });
   if (boostedFrame.volume !== 3 || boostedFrame.boostUnavailable) throw new Error('Embedded audio boost did not activate');
   await control({ type: 'SET_VOLUME', volume: 1 });
-  for (const scenario of ['cors', 'denied', 'rollback']) {
+  for (const scenario of ['cors', 'head-rejected', 'denied', 'rollback']) {
+    const supported = ['cors', 'head-rejected'].includes(scenario);
     await driver.switchTo().window(pageHandle);
     await driver.get(`http://127.0.0.1:${server.address().port}/`);
     await driver.executeScript(`const v=document.getElementById('main');
@@ -328,19 +329,56 @@ try {
     await driver.executeScript("document.getElementById('main').muted=false");
     await driver.switchTo().window(extensionHandle);
     const result = await control({ type: 'SET_VOLUME', volume: 3 });
-    if (result.boostUnavailable !== (scenario !== 'cors') || result.volume !== (scenario === 'cors' ? 3 : 1)) {
+    if (result.boostUnavailable !== !supported || result.volume !== (supported ? 3 : 1)) {
       throw new Error(`Incorrect CORS recovery result: ${scenario} ${JSON.stringify(result)}`);
     }
     await driver.switchTo().window(pageHandle);
     const media = await driver.executeScript(`const v=document.getElementById('main');
       return {cors:v.crossOrigin,time:v.currentTime,paused:v.paused,error:v.error?.code,loads:Number(v.dataset.loads)};`);
-    if (media.error || media.paused || media.time < 1.9 || media.cors !== (scenario === 'cors' ? 'anonymous' : null)) {
+    if (media.error || media.paused || media.time < 1.9 || media.cors !== (supported ? 'anonymous' : null)) {
       throw new Error(`Playback was not preserved: ${scenario} ${JSON.stringify(media)}`);
     }
     if (scenario === 'denied' && media.loads !== 1) throw new Error('Denied CORS unnecessarily reloaded media');
     await driver.switchTo().window(extensionHandle);
     await control({ type: 'SET_VOLUME', volume: 1 });
   }
+  await driver.switchTo().window(pageHandle);
+  await driver.get(`http://127.0.0.1:${server.address().port}/shadow`);
+  await driver.executeScript(`
+    document.getElementById('main').remove();
+    const host = document.createElement('div'); document.body.append(host);
+    const inner = document.createElement('div'); host.attachShadow({ mode: 'open' }).append(inner);
+    const root = inner.attachShadow({ mode: 'open' });
+    const video = document.createElement('video'); video.width = 640; video.height = 360;
+    video.controls = true; video.loop = true; video.src = arguments[0]; root.append(video);
+    window.testVideo = video;
+  `, wavUrl);
+  await driver.wait(async () => await driver.executeScript('return window.testVideo.readyState >= 2'), 5000);
+  await driver.actions().click(await driver.executeScript('return window.testVideo')).perform();
+  await driver.executeScript('window.testVideo.muted = true; return window.testVideo.play()');
+  await driver.executeScript('window.testVideo.muted = false');
+  await driver.switchTo().window(extensionHandle);
+  const shadowSpeed = await control({ type: 'SET_SPEED', speed: 1.6 });
+  const shadowBoost = await control({ type: 'SET_VOLUME', volume: 3 });
+  if (shadowSpeed.speed !== 1.6 || shadowSpeed.count !== 1 || shadowBoost.volume !== 3 || shadowBoost.boostUnavailable) {
+    throw new Error('Nested shadow player controls failed');
+  }
+  await driver.switchTo().window(pageHandle);
+  await driver.executeScript('window.testVideo.playbackRate = 1');
+  await driver.wait(async () => await driver.executeScript('return window.testVideo.playbackRate === 1.6'),
+    5000, 'Player speed override was not recovered');
+  await driver.findElement({ css: 'body' }).sendKeys('v');
+  await driver.wait(async () => await driver.executeScript('return Math.abs(window.testVideo.playbackRate - 1.8) < 0.001'),
+    5000, 'Shortcut did not detect the shadow player');
+  await driver.executeScript(`const old = window.testVideo; const video = old.cloneNode(true);
+    old.replaceWith(video); window.testVideo = video; video.muted = true; return video.play();`);
+  await driver.wait(async () => await driver.executeScript('return Math.abs(window.testVideo.playbackRate - 1.8) < 0.001'),
+    5000, 'Shadow player replacement lost its speed');
+  await driver.executeScript('window.testVideo.muted = false');
+  await driver.switchTo().window(extensionHandle);
+  await driver.wait(async () => (await control({ type: 'GET_STATE' })).volume === 3,
+    5000, 'Shadow player replacement lost its boost');
+  await control({ type: 'SET_VOLUME', volume: 1 });
   await driver.switchTo().window(pageHandle);
   await driver.get(`http://127.0.0.1:${server.address().port}/scoped`);
   await driver.switchTo().newWindow('tab');
@@ -411,7 +449,7 @@ try {
   if (restored.error || restored.volume !== 1.5 || !restored.other.active || restored.other.volume !== 3) {
     throw new Error(`Disabling one tab changed another: ${JSON.stringify(restored)}`);
   }
-  console.log('Firefox passed: two independent tab volumes, reload, global changes, 8×/32× gain and existing controls.');
+  console.log('Firefox passed: nested shadow players, dynamic replacement, speed recovery, HEAD-rejected audio, independent tab volumes and existing controls.');
 } finally {
   if (driver) await driver.quit();
   await new Promise((done) => server.close(done));

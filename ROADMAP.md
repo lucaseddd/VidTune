@@ -2,9 +2,9 @@
 
 ## Current checkpoint
 
-- Version: 0.5.6
+- Version: 0.5.7
 - Phase: 5 — Advanced Audio / Volume Boost
-- Status: v0.5.6 independent per-tab volumes validated; user testing pending
+- Status: v0.5.7 compatibility refinements validated in Firefox and Chromium (Edge); user testing pending
 
 ## Completed
 
@@ -57,6 +57,14 @@
 - Live-site automation for YouTube, Vimeo, Twitch and Reddit was rejected by automatic approval review because it would widen test host access. This needs explicit user authorization before automation can run.
 - `npm audit --omit=dev` found no runtime vulnerabilities. Three high-severity advisories remain in the Mozilla `web-ext` development dependency chain; they are not included in the browser packages.
 
+## v0.5.7 test results
+
+- Open shadow-root and nested component players: discovery, shortcuts, lifecycle events and dynamic replacements. Visible players take precedence over hidden zero-size media across frames.
+- Event-driven recovery when a player resets non-default playback speed, with a bounded retry budget.
+- CORS GET range probe when HEAD is unsupported; the response body is cancelled immediately. No CORS restrictions are bypassed and no permissions were added.
+- Chromium popup-page tab discovery now resolves missing URLs through the existing webNavigation permission.
+- Firefox integration covers nested shadow roots, replacement, speed resets, HEAD rejection, audio fallback and independent tabs. Chromium package validated in headless Edge for popup, speed, native volume, boost, tab scope, shadow DOM and shortcuts. Google Chrome itself is not installed or tested.
+
 ## v0.5.6 test results
 
 - Each tab can now save a separate volume in session storage. Several tabs can be scoped at once, and the global volume remains available to unscoped tabs. Turning off one tab’s scope returns only that tab to the global preference. An existing v0.5.5 single-tab scope is migrated on the first change.
@@ -97,4 +105,4 @@
 
 ## Next milestone
 
-Phase 6 — Picture in Picture, only after explicit user approval following the v0.5.2 checkpoint.
+The user declined Picture in Picture. Continue compatibility refinements and user testing; choose the next feature only when requested.
