@@ -3,6 +3,7 @@ import { mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { Builder } from 'selenium-webdriver';
 import firefox from 'selenium-webdriver/firefox.js';
+import { installTestAddons } from './firefox-addons.js';
 
 process.env.SE_CACHE_PATH = resolve('work/selenium-cache');
 process.env.SE_AVOID_STATS = 'true';
@@ -24,6 +25,13 @@ wav.write('data', 36);
 wav.writeUInt32LE(48000, 40);
 const wavUrl = `data:audio/wav;base64,${wav.toString('base64')}`;
 const server = createServer((request, response) => {
+  if (request.url.startsWith('/audio')) {
+    const allowed = request.url === '/audio-cors' || (request.url === '/audio-rollback' && request.method === 'HEAD');
+    response.writeHead(200, { 'content-type': 'audio/wav', 'content-length': wav.length,
+      ...(allowed ? { 'access-control-allow-origin': '*' } : {}) });
+    response.end(request.method === 'HEAD' ? undefined : wav);
+    return;
+  }
   response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
   response.end(request.url === '/frames'
     ? `<!doctype html><title>Embedded player test</title><iframe width="800" height="500" src="http://localhost:${server.address().port}/"></iframe>`
@@ -36,8 +44,7 @@ try {
   const options = new firefox.Options().setBinary('C:\\Program Files\\Mozilla Firefox\\firefox.exe');
   const service = new firefox.ServiceBuilder().addArguments('--allow-system-access');
   driver = await new Builder().forBrowser('firefox').setFirefoxOptions(options).setFirefoxService(service).build();
-  const addOnId = await driver.installAddon(resolve('dist'), true);
-  if (addOnId !== 'vidtune@vidtune.local') throw new Error(`Unexpected add-on ID: ${addOnId}`);
+  await installTestAddons(driver);
   await driver.setContext(firefox.Context.CHROME);
   const uuid = await driver.executeScript("return JSON.parse(Services.prefs.getStringPref('extensions.webextensions.uuids'))['vidtune@vidtune.local'];");
   await driver.setContext(firefox.Context.CONTENT);
@@ -279,7 +286,33 @@ try {
   await driver.switchTo().window(extensionHandle);
   const boostedFrame = await control({ type: 'SET_VOLUME', volume: 3 });
   if (boostedFrame.volume !== 3 || boostedFrame.boostUnavailable) throw new Error('Embedded audio boost did not activate');
-  console.log('Firefox passed: cross-origin iframe detection, speed, volume, 300% boost and shortcuts; existing playback tests.');
+  await control({ type: 'SET_VOLUME', volume: 1 });
+  for (const scenario of ['cors', 'denied', 'rollback']) {
+    await driver.switchTo().window(pageHandle);
+    await driver.get(`http://127.0.0.1:${server.address().port}/`);
+    await driver.executeScript(`const v=document.getElementById('main');
+      v.src=arguments[0]; v.loop=true; v.addEventListener('loadstart',()=>{v.dataset.loads=String(Number(v.dataset.loads||0)+1)});`,
+    `http://localhost:${server.address().port}/audio-${scenario}`);
+    await driver.wait(async () => await driver.executeScript("return document.getElementById('main').readyState >= 2"), 5000);
+    await driver.findElement({ id: 'main' }).click();
+    await driver.executeScript("const v=document.getElementById('main');v.currentTime=2;v.muted=true;return v.play()");
+    await driver.executeScript("document.getElementById('main').muted=false");
+    await driver.switchTo().window(extensionHandle);
+    const result = await control({ type: 'SET_VOLUME', volume: 3 });
+    if (result.boostUnavailable !== (scenario !== 'cors') || result.volume !== (scenario === 'cors' ? 3 : 1)) {
+      throw new Error(`Incorrect CORS recovery result: ${scenario} ${JSON.stringify(result)}`);
+    }
+    await driver.switchTo().window(pageHandle);
+    const media = await driver.executeScript(`const v=document.getElementById('main');
+      return {cors:v.crossOrigin,time:v.currentTime,paused:v.paused,error:v.error?.code,loads:Number(v.dataset.loads)};`);
+    if (media.error || media.paused || media.time < 1.9 || media.cors !== (scenario === 'cors' ? 'anonymous' : null)) {
+      throw new Error(`Playback was not preserved: ${scenario} ${JSON.stringify(media)}`);
+    }
+    if (scenario === 'denied' && media.loads !== 1) throw new Error('Denied CORS unnecessarily reloaded media');
+    await driver.switchTo().window(extensionHandle);
+    await control({ type: 'SET_VOLUME', volume: 1 });
+  }
+  console.log('Firefox passed: CORS recovery, denied-CORS fallback, failed-load rollback, playback preservation, iframe boost and existing controls.');
 } finally {
   if (driver) await driver.quit();
   await new Promise((done) => server.close(done));

@@ -1,7 +1,7 @@
 {
   "name": "vidtune",
   "private": true,
-  "version": "0.5.1",
+  "version": "0.5.2",
   "type": "module",
   "description": "Lightweight video controls for the web",
   "scripts": {
@@ -10,7 +10,7 @@
     "lint:firefox": "web-ext lint --source-dir dist",
     "test": "node --test test/foundation.test.js test/content.test.js test/routing.test.js",
     "package": "node scripts/package.js",
-    "firefox": "web-ext run --source-dir dist",
+    "firefox": "node scripts/firefox.js",
     "test:firefox": "node scripts/firefox-test.js"
   },
   "engines": {

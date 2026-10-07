@@ -1,6 +1,6 @@
 # VidTune
 
-**VidTune — Speed, Volume & PiP** is a lightweight browser extension under development. Version 0.5.1 adds optional volume boost up to 300%. Picture in Picture is planned for a later milestone.
+**VidTune — Speed, Volume & PiP** is a lightweight browser extension under development. Version 0.5.2 improves volume boost compatibility up to 300%. Picture in Picture is planned for a later milestone.
 
 ## Speed controls
 
@@ -16,11 +16,12 @@
 
 ## Volume control
 
-Videos inside accessible web iframes are supported, including cross-origin players. Reload existing pages after updating to v0.5.1. The popup chooses the playing video first, then the largest video. Keyboard shortcuts work while the video frame has focus.
+Videos inside accessible web iframes are supported, including cross-origin players. Reload existing pages after updating to v0.5.2. The popup chooses the playing video first, then the largest video. Keyboard shortcuts work while the video frame has focus.
 
 - The slider starts at 100% in the center. Move left toward 0%, or right for up to 300% boost. The 0%–100% half keeps fine control near silence: position 1 is 0.01%, position 10 is 1%, and position 50 is 25%.
 - Up to 100%, VidTune uses the video's native volume control. Above 100%, it creates a Web Audio gain path with compression for the selected video. That path is created only after boost is requested and the video starts playing.
 - Volume is saved locally and applied to new videos, including videos replaced by a site without navigation. Adjusting the slider above 0% also unmutes a muted video. A boosted video can be returned to native volume by moving the slider to 100% or lower.
+- When cross-origin media was loaded without CORS, VidTune checks whether its server permits audio processing. If it does, the video reconnects with CORS enabled, restoring its position, playback state and speed. This can briefly interrupt playback. A failed reconnection restores the original loading mode. Protected media and servers that reject the compatibility check keep native audio.
 - Some cross-origin media cannot safely be routed through Web Audio. VidTune keeps native playback at 100% and shows **Boost unavailable for this video** on those videos. A video paused before boost shows **Play video to enable boost**.
 
 ## Development
@@ -37,12 +38,12 @@ npm run package
 npm run firefox
 ```
 
-`npm run firefox` opens a temporary Firefox development window with the extension loaded. Alternatively, load `dist/manifest.json` through `about:debugging` → **This Firefox** → **Load Temporary Add-on**. In Chromium, use **Load unpacked** and select `dist-chromium/`. `npm run test:firefox` opens and closes its own Firefox test window.
+`npm run firefox` opens a temporary Firefox development window with VidTune and uBlock Origin loaded. Pass a URL after `--` to open a test page. The launcher and integration tests reuse the uBlock package already installed in a Windows Firefox profile; on other systems, set `UBLOCK_XPI` to its path. They stop if that package is unavailable. Alternatively, load `dist/manifest.json` through `about:debugging` → **This Firefox** → **Load Temporary Add-on**. In Chromium, use **Load unpacked** and select `dist-chromium/`. `npm run test:firefox` opens and closes its own Firefox test window.
 
 The temporary Firefox installation is removed when Firefox restarts. Rebuild and reload after source changes.
 
 ## Privacy and permissions
 
-VidTune stores settings locally in browser storage. It makes no network requests and has no analytics. A small content script runs on web pages to hear configured single-letter shortcuts and check whether a saved site speed or volume should be applied; these keys cannot be registered through the browser commands API. This requires access to web pages through the manifest's `<all_urls>` content-script match. A passive bootstrap and shortcut listener load in each web frame. The controller initializes only when used or when a saved preference is applied. `activeTab` and `scripting` provide fallback injection on existing tabs; `storage` saves preferences. `webNavigation` enumerates frames on demand so each command can target the main video. Frame URLs are not stored or transmitted, and no navigation event listeners are registered. The background script runs only for extension events. At 1× and 100% volume without a site profile, the controller has no document-wide video mutation observer or video lifecycle listeners; YouTube's player class observer may remain active for the indicator. No new permissions were needed for boost.
+VidTune stores settings locally in browser storage. It has no analytics or remote service. When boost is requested for cross-origin media, it may send a CORS HEAD compatibility check to the current media server and reconnect the video in CORS mode. The check omits credentials; no browsing or media data is sent to VidTune servers. A small content script runs on web pages to hear configured single-letter shortcuts and check whether a saved site speed or volume should be applied; these keys cannot be registered through the browser commands API. This requires access to web pages through the manifest's `<all_urls>` content-script match. A passive bootstrap and shortcut listener load in each web frame. The controller initializes only when used or when a saved preference is applied. `activeTab` and `scripting` provide fallback injection on existing tabs; `storage` saves preferences. `webNavigation` enumerates frames on demand so each command can target the main video. Frame URLs are not stored or transmitted, and no navigation event listeners are registered. The background script runs only for extension events. At 1× and 100% volume without a site profile, the controller has no document-wide video mutation observer or video lifecycle listeners; YouTube's player class observer may remain active for the indicator. No new permissions were needed for boost.
 
 Browser internal pages and some restricted pages do not allow scanning. The popup reports this without interrupting browsing. The controller detects videos in accessible web frames, including cross-origin players. Restricted frames and blank/srcdoc frames are not supported. A Web Audio path created for a boosted video remains attached to that media element while the page is open, even after returning to native volume. Exact frame stepping is deferred because the generic web video API does not provide a reliable cross-browser next-frame seek operation.

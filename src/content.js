@@ -35,6 +35,7 @@
     let boostError = null;
     const audioRoutes = new WeakMap();
     const pendingRoutes = new WeakMap();
+    const failedSources = new WeakMap();
     let hasSiteProfile = false;
     let speedStep = 0.1;
     let seekSeconds = 10;
@@ -101,8 +102,8 @@
     async function audioRoute(video) {
       if (audioRoutes.has(video)) return audioRoutes.get(video);
       if (pendingRoutes.has(video)) return pendingRoutes.get(video);
-      if (!canRouteAudio(video)) return null;
       const task = (async () => {
+        if (!canRouteAudio(video) && !await prepareAudioSource(video)) return null;
         const AudioContextClass = globalThis.AudioContext ?? globalThis.webkitAudioContext;
         if (!AudioContextClass) return null;
         let context;
@@ -138,6 +139,66 @@
       pendingRoutes.set(video, task);
       try { return await task; }
       finally { pendingRoutes.delete(video); }
+    }
+
+    async function prepareAudioSource(video) {
+      const source = video.currentSrc || video.src;
+      if (!source || video.mediaKeys || failedSources.get(video) === source) return false;
+      try {
+        const url = new URL(source, document.baseURI);
+        if (!['http:', 'https:'].includes(url.protocol)) return false;
+        const response = await fetch(source, {
+          method: 'HEAD', mode: 'cors', credentials: 'omit', signal: AbortSignal.timeout(5000)
+        });
+        if (!response.ok || !video.isConnected || (video.currentSrc || video.src) !== source) {
+          failedSources.set(video, source);
+          return false;
+        }
+      } catch {
+        failedSources.set(video, source);
+        return false;
+      }
+      const snapshot = {
+        time: video.currentTime, paused: video.paused, speed: video.playbackRate,
+        muted: video.muted, volume: video.volume, crossOrigin: video.getAttribute('crossorigin')
+      };
+      const sourceSignature = () => JSON.stringify([video.getAttribute('src'),
+        [...video.querySelectorAll('source')].map((item) => item.getAttribute('src'))]);
+      const originalSignature = sourceSignature();
+      const stillCurrent = () => video.isConnected && sourceSignature() === originalSignature &&
+        (!video.currentSrc || video.currentSrc === source);
+      const reload = (cors) => new Promise((resolve) => {
+        const finish = (success) => {
+          clearTimeout(timer);
+          video.removeEventListener('loadedmetadata', loaded);
+          video.removeEventListener('error', failed);
+          resolve(success);
+        };
+        const loaded = () => {
+          if (!stillCurrent()) { finish(false); return; }
+          try {
+            video.playbackRate = snapshot.speed;
+            video.volume = snapshot.volume;
+            video.muted = snapshot.muted;
+            if (Number.isFinite(snapshot.time)) video.currentTime = snapshot.time;
+            if (!snapshot.paused) video.play().catch(() => {});
+            finish(true);
+          } catch { finish(false); }
+        };
+        const failed = () => finish(false);
+        const timer = setTimeout(failed, 10000);
+        video.addEventListener('loadedmetadata', loaded);
+        video.addEventListener('error', failed);
+        try {
+          if (cors == null) video.removeAttribute('crossorigin');
+          else video.setAttribute('crossorigin', cors);
+          video.load();
+        } catch { finish(false); }
+      });
+      if (await reload('anonymous')) return true;
+      failedSources.set(video, source);
+      if (stillCurrent()) await reload(snapshot.crossOrigin);
+      return false;
     }
 
     function routeNative(video, volume) {

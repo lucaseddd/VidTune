@@ -2,9 +2,9 @@
 
 ## Current checkpoint
 
-- Version: 0.5.1
+- Version: 0.5.2
 - Phase: 5 — Advanced Audio / Volume Boost
-- Status: v0.5.1 checkpoint complete; waiting for user testing before Phase 6
+- Status: v0.5.2 compatibility fix validated locally; live-site confirmation pending
 
 ## Completed
 
@@ -42,7 +42,7 @@
 - The popup keeps only quick controls. Advanced controls use the browser's native extension options page; video detection moved there as well.
 - Seeking clamps to the media's seekable range. No extra popup buttons or permissions were added for it.
 - The 0%–100% half uses `HTMLMediaElement.volume`; boost creates a Web Audio source, gain and compressor only when requested on a playing video. Slider previews are throttled and saved on release. No additional permission is needed.
-- Cross-origin media without CORS is left on the native audio path before creating a source node, because routing it through Web Audio could silence it. Firefox autoplay restrictions defer boost until playback starts.
+- Cross-origin media without CORS is checked with a credential-free HEAD request. Servers permitting CORS can be reloaded with anonymous CORS while preserving playback position and state. Failed reloads restore the original mode. Denied checks and protected media stay on native audio before creating a source node. Firefox autoplay restrictions defer boost until playback starts.
 - A saved volume below 100% triggers the existing preference initializer on new pages. At the default 100%, it does not add a page observer.
 
 ## Known limits
@@ -57,7 +57,14 @@
 - Live-site automation for YouTube, Vimeo, Twitch and Reddit was rejected by automatic approval review because it would widen test host access. This needs explicit user authorization before automation can run.
 - `npm audit --omit=dev` found no runtime vulnerabilities. Three high-severity advisories remain in the Mozilla `web-ext` development dependency chain; they are not included in the browser packages.
 
-## Test results
+## v0.5.2 test results
+
+- All 15 unit tests and source lint passed. Firefox integration passed with uBlock Origin installed: CORS recovery to 300%, denied-CORS native fallback without reload, rollback after a failed CORS media load, position and playback preservation, iframe boost and the existing controls.
+- The prepared live-site session expired before the new build could be applied. Its media server previously returned a successful CORS HEAD response, matching the recovery path now covered by integration tests. Live-site boost remains unverified.
+- Firefox development and test launchers now require uBlock Origin alongside VidTune.
+- Mozilla extension lint completed without errors or warnings; Firefox and Chromium v0.5.2 packages generated. The reopened Firefox session has uBlock Origin 1.75.0 and VidTune 0.5.2 verified active.
+
+## Earlier test results
 
 - Firefox verified speed, native volume, 300% boost and configured keys inside a cross-origin HTTP iframe. The supplied RedeCanais page exposed one video in eight frames on the first visit; 1.5× speed and 50% native volume applied. Playback remained buffering, and a second visit did not expose a video, so live-site boost is unverified.
 
@@ -69,4 +76,4 @@
 
 ## Next milestone
 
-Phase 6 — Picture in Picture, only after explicit user approval following the v0.5.1 checkpoint.
+Phase 6 — Picture in Picture, only after explicit user approval following the v0.5.2 checkpoint.
