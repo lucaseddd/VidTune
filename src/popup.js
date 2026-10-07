@@ -13,6 +13,7 @@ const manualValue = document.querySelector('#manual-value');
 const refresh = document.querySelector('#refresh');
 const volumeSlider = document.querySelector('#volume-slider');
 const volumeValue = document.querySelector('#volume-value');
+const tabVolumeOnly = document.querySelector('#tab-volume-only');
 let currentTab = null;
 let volumeTimer = null;
 let pendingVolume = null;
@@ -61,7 +62,7 @@ function volumeFromSlider() {
 }
 
 function sendVolume(volume, persist) {
-  if (!currentTab?.id) return;
+  if (!currentTab?.id || volumeSlider.disabled) return;
   volumeRequests = volumeRequests.catch(() => {}).then(async () => {
     const state = await sendToVideo(currentTab.id, { type: persist ? 'SET_VOLUME' : 'PREVIEW_VOLUME', volume });
     if (state.error) throw new Error(state.error);
@@ -129,6 +130,11 @@ async function initialize() {
     }
     try { site.textContent = new URL(tab.url).hostname || 'Current page'; }
     catch { site.textContent = 'Current page'; }
+    const scope = await browserApi().runtime.sendMessage({ type: 'GET_VOLUME_SCOPE', tabId: tab.id });
+    tabVolumeOnly.checked = scope.active;
+    volumeSlider.disabled = Boolean(scope.selectedTabId && !scope.active);
+    if (volumeSlider.disabled) volumeSlider.title = 'Boost is reserved for another tab. Select Only this tab to move it here.';
+    if (scope.active) renderVolume(scope.volume);
     if (settings.autoDetect) await scan();
     else { summary.textContent = 'Automatic scanning is off.'; setStatus('Paused'); }
   } catch {
@@ -138,6 +144,28 @@ async function initialize() {
 }
 
 refresh.addEventListener('click', scan);
+tabVolumeOnly.addEventListener('change', async () => {
+  if (!currentTab?.id) return;
+  tabVolumeOnly.disabled = true;
+  try {
+    await volumeRequests;
+    const previous = await browserApi().runtime.sendMessage({ type: 'GET_VOLUME_SCOPE', tabId: currentTab.id });
+    const result = await browserApi().runtime.sendMessage({
+      type: 'SET_VOLUME_SCOPE', tabId: currentTab.id, enabled: tabVolumeOnly.checked,
+      volume: volumeSlider.disabled ? previous.volume : positionToVolume(volumeSlider.value)
+    });
+    if (result.error) throw new Error(result.error);
+    if (result.previousTabId && result.previousTabId !== currentTab.id) {
+      await sendToVideo(result.previousTabId, { type: 'SYNC_VOLUME_SCOPE' }).catch(() => {});
+    }
+    renderVideoState(await sendToVideo(currentTab.id, { type: 'SYNC_VOLUME_SCOPE' }));
+    volumeSlider.disabled = false;
+    volumeSlider.title = 'Above 100%: progressive boost. 200% applies up to 8× gain; 300% applies up to 32×.';
+  } catch {
+    tabVolumeOnly.checked = !tabVolumeOnly.checked;
+    setStatus('Could not change volume scope', 'error');
+  } finally { tabVolumeOnly.disabled = false; }
+});
 volumeSlider.addEventListener('input', () => {
   pendingVolume = volumeFromSlider();
   if (!volumeTimer) volumeTimer = setTimeout(() => {

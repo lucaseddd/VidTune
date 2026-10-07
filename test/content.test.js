@@ -33,7 +33,7 @@ function fixture(initialSpeed, initialVideos, extraSettings = {}) {
       async get() { return { settings: page.settings }; },
       async set({ settings }) { page.settings = settings; }
     } },
-    runtime: { onMessage: { addListener(listener) { onMessage = listener; } } }
+    runtime: { sendMessage: async () => ({ active: false }), onMessage: { addListener(listener) { onMessage = listener; } } }
   };
   const context = { browser, document, MutationObserver: Observer, queueMicrotask, location: { hostname: 'example.com' } };
   runInNewContext(source, context);

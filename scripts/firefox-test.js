@@ -59,7 +59,7 @@ try {
       const context = new OfflineAudioContext(1, 48000, 48000);
       const buffer = context.createBuffer(1, 48000, 48000);
       const samples = buffer.getChannelData(0);
-      for (let i = 0; i < samples.length; i++) samples[i] = 0.02 * Math.sin(2 * Math.PI * 440 * i / 48000);
+      for (let i = 0; i < samples.length; i++) samples[i] = 0.01 * Math.sin(2 * Math.PI * 440 * i / 48000);
       const source = context.createBufferSource(); source.buffer = buffer;
       const gain = context.createGain();
       gain.gain.setTargetAtTime(${gainExpression}, context.currentTime, 0.03);
@@ -74,7 +74,7 @@ try {
     }
     Promise.all([1, 2, 3].map(measure)).then(done, error => done({error: String(error)}));
   `, compressorSettings);
-  if (!Array.isArray(measured) || Math.abs(measured[1] / measured[0] - 4) > 0.1 || Math.abs(measured[2] / measured[0] - 16) > 0.2) {
+  if (!Array.isArray(measured) || Math.abs(measured[1] / measured[0] - 8) > 0.2 || Math.abs(measured[2] / measured[0] - 32) > 0.4) {
     throw new Error(`Compressor suppressed the requested audio gain: ${JSON.stringify(measured)}`);
   }
   console.log(`Measured audio gain: ${(measured[1] / measured[0]).toFixed(2)}x and ${(measured[2] / measured[0]).toFixed(2)}x`);
@@ -341,7 +341,54 @@ try {
     await driver.switchTo().window(extensionHandle);
     await control({ type: 'SET_VOLUME', volume: 1 });
   }
-  console.log('Firefox passed: CORS recovery, denied-CORS fallback, failed-load rollback, playback preservation, iframe boost and existing controls.');
+  await driver.switchTo().window(pageHandle);
+  await driver.get(`http://127.0.0.1:${server.address().port}/scoped`);
+  await driver.switchTo().newWindow('tab');
+  const otherHandle = await driver.getWindowHandle();
+  await driver.get(`http://127.0.0.1:${server.address().port}/other`);
+  await driver.switchTo().window(extensionHandle);
+  const scopeTest = await driver.executeAsyncScript(`
+    const done = arguments[arguments.length - 1];
+    (async () => {
+      const tabs = await browser.tabs.query({});
+      const selected = tabs.find(tab => tab.url?.endsWith('/scoped'));
+      const other = tabs.find(tab => tab.url?.endsWith('/other'));
+      const { sendToVideo } = await import(browser.runtime.getURL('src/browser.js'));
+      const send = (tab, type, volume) => sendToVideo(tab.id, { type, volume });
+      await send(selected, 'SET_VOLUME', 3);
+      await send(other, 'GET_STATE');
+      const enabled = await browser.runtime.sendMessage({ type: 'SET_VOLUME_SCOPE', tabId: selected.id, enabled: true, volume: 3 });
+      await send(selected, 'SYNC_VOLUME_SCOPE');
+      const selectedState = await send(selected, 'SET_VOLUME', 2);
+      const otherState = await send(other, 'GET_STATE');
+      done({ selectedId: selected.id, enabled, selectedState, otherState });
+    })().catch(error => done({ error: String(error) }));
+  `);
+  if (scopeTest.error || scopeTest.enabled.error || scopeTest.selectedState.volume !== 2 || scopeTest.otherState.volume !== 1) {
+    throw new Error(`Tab-only boost leaked into another tab: ${JSON.stringify(scopeTest)}`);
+  }
+  await driver.switchTo().window(pageHandle);
+  await driver.navigate().refresh();
+  await driver.switchTo().window(extensionHandle);
+  const reloadScope = await driver.executeAsyncScript(`
+    const done = arguments[arguments.length - 1];
+    (async () => {
+      const { sendToVideo } = await import(browser.runtime.getURL('src/browser.js'));
+      return sendToVideo(arguments[0], { type: 'GET_STATE' });
+    })().then(done, error => done({ error: String(error) }));
+  `, scopeTest.selectedId);
+  if (reloadScope.volume !== 2) throw new Error(`Scoped boost was lost after reload: ${JSON.stringify(reloadScope)}`);
+  const restored = await driver.executeAsyncScript(`
+    const done = arguments[arguments.length - 1];
+    (async () => {
+      const result = await browser.runtime.sendMessage({ type: 'SET_VOLUME_SCOPE', tabId: arguments[0], enabled: false });
+      const settings = (await browser.storage.local.get('settings')).settings;
+      return { result, volume: settings.volume };
+    })().then(done, error => done({ error: String(error) }));
+  `, scopeTest.selectedId);
+  if (restored.error || restored.volume !== 3) throw new Error('Global volume was not restored after disabling tab-only mode');
+  await driver.switchTo().window(otherHandle);
+  console.log('Firefox passed: 8×/32× gain, tab-only isolation and reload, CORS recovery, fallback and existing controls.');
 } finally {
   if (driver) await driver.quit();
   await new Promise((done) => server.close(done));

@@ -20,7 +20,11 @@
     }
   }
 
-  api.storage.local.get('settings').then(({ settings }) => useSettings(settings)).catch(() => {});
+  Promise.all([api.storage.local.get('settings'), api.runtime.sendMessage({ type: 'GET_VOLUME_SCOPE' })])
+    .then(([{ settings }, scope]) => {
+      useSettings(settings);
+      if (scope?.active && scope.volume !== 1) api.runtime.sendMessage({ type: 'INIT_PREFERENCES' }).catch(() => {});
+    }).catch(() => {});
   api.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.settings) useSettings(changes.settings.newValue);
   });

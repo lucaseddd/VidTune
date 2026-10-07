@@ -2,9 +2,9 @@
 
 ## Current checkpoint
 
-- Version: 0.5.4
+- Version: 0.5.5
 - Phase: 5 — Advanced Audio / Volume Boost
-- Status: v0.5.4 extreme boost validated in Firefox; user listening test pending
+- Status: v0.5.5 stronger boost and per-tab scope validated; user listening test pending
 
 ## Completed
 
@@ -56,6 +56,12 @@
 - Once an element is routed into Web Audio, its graph remains connected while that page is open, including at native volume; the browser cannot reliably undo the source association. Compression reduces clipping risk but cannot repair audio already distorted by its source.
 - Live-site automation for YouTube, Vimeo, Twitch and Reddit was rejected by automatic approval review because it would widen test host access. This needs explicit user authorization before automation can run.
 - `npm audit --omit=dev` found no runtime vulnerabilities. Three high-severity advisories remain in the Mozilla `web-ext` development dependency chain; they are not included in the browser packages.
+
+## v0.5.5 test results
+
+- The upper boost scale is doubled at its marked points: 150%=4×, 200%=8×, 250%=16×, 300%=32×. The transition starts smoothly from 100%=1×. The peak limiter still constrains loud source material.
+- The popup now offers **Only this tab**. Enabling it stores the selected tab and volume in session storage, caps the global saved boost at 100% during the scope, and restores the prior global value when disabled. Tab reloads retain the selected scope; closing the tab clears it.
+- Headless Firefox measured 8.00× and 32.00× RMS gain on a quiet tone. Integration tests verified that a second tab returns to 100%, scoped slider changes stay local and survive reload, and disabling the scope restores the previous global setting.
 
 ## v0.5.4 test results
 

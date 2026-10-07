@@ -15,7 +15,7 @@
       respond({ count: videos.length, playing: playing.length > 0, area });
       return;
     }
-    if (!['GET_STATE', 'SET_SPEED', 'INCREASE', 'DECREASE', 'RESET', 'SET_VOLUME', 'PREVIEW_VOLUME', 'SEEK_BACKWARD', 'SEEK_FORWARD'].includes(message?.type)) return;
+    if (!['GET_STATE', 'SET_SPEED', 'INCREASE', 'DECREASE', 'RESET', 'SET_VOLUME', 'PREVIEW_VOLUME', 'SYNC_VOLUME_SCOPE', 'SEEK_BACKWARD', 'SEEK_FORWARD'].includes(message?.type)) return;
     initialize();
     return handleMessage(message, sender, respond);
   });
@@ -31,6 +31,7 @@
     let desiredSpeed = 1;
     let desiredVolume = 1;
     let volumeManaged = false;
+    let scopedVolume = false;
     let activeBoostVideo = null;
     let boostError = null;
     const audioRoutes = new WeakMap();
@@ -223,8 +224,8 @@
         route.mode = 'boost';
       }
       if (video.volume !== 1) video.volume = 1;
-      // The upper slider is a boost scale: 200% = 4x, 300% = 16x (+24 dB).
-      const gain = 4 ** (volume - 1);
+      // The upper slider reaches 4x at 150%, 8x at 200%, and 32x at 300%.
+      const gain = volume <= 1.5 ? 16 ** (volume - 1) : 2 ** (2 * volume - 1);
       route.gain.gain.setTargetAtTime(gain, route.context.currentTime, 0.03);
     }
 
@@ -430,8 +431,11 @@
       if (video && desiredVolume > 0 && video.muted) video.muted = false;
       await applyToMain();
       if (persist) {
-        const { settings } = await api.storage.local.get('settings');
-        await api.storage.local.set({ settings: { ...settings, volume: desiredVolume } });
+        if (scopedVolume) await api.runtime.sendMessage({ type: 'SAVE_SCOPED_VOLUME', volume: desiredVolume });
+        else {
+          const { settings } = await api.storage.local.get('settings');
+          await api.storage.local.set({ settings: { ...settings, volume: desiredVolume } });
+        }
       }
       return state();
     }
@@ -452,10 +456,13 @@
       return state();
     }
 
-    const ready = api.storage.local.get('settings').then(async ({ settings }) => {
+    const ready = Promise.all([api.storage.local.get('settings'),
+      api.runtime.sendMessage({ type: 'GET_VOLUME_SCOPE' }).catch(() => null)])
+      .then(async ([{ settings }, scope]) => {
       hasSiteProfile = Object.hasOwn(settings?.siteSpeeds ?? {}, siteHost);
       desiredSpeed = normalize(settings?.siteSpeeds?.[siteHost] ?? settings?.speed);
-      desiredVolume = normalizeVolume(settings?.volume);
+      scopedVolume = Boolean(scope?.active);
+      desiredVolume = normalizeVolume(scopedVolume ? scope.volume : settings?.volume);
       volumeManaged = desiredVolume !== 1;
       speedStep = Number(settings?.speedStep) || 0.1;
       seekSeconds = Number(settings?.seekSeconds) || 10;
@@ -470,7 +477,7 @@
       seekSeconds = Number(settings?.seekSeconds) || 10;
       hasSiteProfile = Object.hasOwn(settings?.siteSpeeds ?? {}, siteHost);
       const nextVolume = normalizeVolume(settings?.volume);
-      if (nextVolume !== desiredVolume) {
+      if (!scopedVolume && nextVolume !== desiredVolume) {
         desiredVolume = nextVolume;
         volumeManaged = true;
         applyToMain().catch(() => {});
@@ -480,7 +487,7 @@
 
     let pending = ready;
     handleMessage = (message, _sender, respond) => {
-      if (!['GET_STATE', 'SET_SPEED', 'INCREASE', 'DECREASE', 'RESET', 'SET_VOLUME', 'PREVIEW_VOLUME', 'SEEK_BACKWARD', 'SEEK_FORWARD'].includes(message?.type)) return;
+      if (!['GET_STATE', 'SET_SPEED', 'INCREASE', 'DECREASE', 'RESET', 'SET_VOLUME', 'PREVIEW_VOLUME', 'SYNC_VOLUME_SCOPE', 'SEEK_BACKWARD', 'SEEK_FORWARD'].includes(message?.type)) return;
       pending = pending.then(async () => {
         const current = state().speed;
         switch (message.type) {
@@ -490,6 +497,12 @@
           case 'RESET': return setSpeed(1);
           case 'SET_VOLUME': return setVolume(message.volume, true);
           case 'PREVIEW_VOLUME': return setVolume(message.volume, false);
+          case 'SYNC_VOLUME_SCOPE': {
+            const scope = await api.runtime.sendMessage({ type: 'GET_VOLUME_SCOPE' });
+            scopedVolume = Boolean(scope?.active);
+            const { settings } = await api.storage.local.get('settings');
+            return setVolume(scopedVolume ? scope.volume : settings?.volume, false);
+          }
           case 'SEEK_BACKWARD': return seek(-1);
           case 'SEEK_FORWARD': return seek(1);
           default: return state();
