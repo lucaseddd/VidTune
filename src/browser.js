@@ -15,11 +15,25 @@ export async function activeTab() {
   return tab ?? null;
 }
 
-export async function sendToVideo(tabId, message) {
+export async function sendToFrame(tabId, frameId, message) {
   const api = browserApi();
-  try { return await api.tabs.sendMessage(tabId, message); }
+  try { return await api.tabs.sendMessage(tabId, message, { frameId }); }
   catch {
-    await api.scripting.executeScript({ target: { tabId }, files: ['src/content.js'] });
-    return api.tabs.sendMessage(tabId, message);
+    await api.scripting.executeScript({ target: { tabId, frameIds: [frameId] }, files: ['src/content.js'] });
+    return api.tabs.sendMessage(tabId, message, { frameId });
   }
+}
+
+export async function sendToVideo(tabId, message) {
+  const frames = await browserApi().webNavigation.getAllFrames({ tabId }) ?? [];
+  const probes = await Promise.allSettled(frames.map(async ({ frameId }) => ({
+    frameId, ...await sendToFrame(tabId, frameId, { type: 'PROBE_VIDEOS' })
+  })));
+  const available = probes.filter((result) => result.status === 'fulfilled').map((result) => result.value);
+  const candidates = available.filter((frame) => frame.count > 0);
+  candidates.sort((a, b) => Number(b.playing) - Number(a.playing) || b.area - a.area || a.frameId - b.frameId);
+  const frame = candidates[0] ?? available.find((candidate) => candidate.frameId === 0);
+  if (!frame) throw new Error('This page does not allow video controls');
+  const state = await sendToFrame(tabId, frame.frameId, message);
+  return { ...state, count: available.reduce((total, candidate) => total + candidate.count, 0) };
 }

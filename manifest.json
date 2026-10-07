@@ -2,14 +2,14 @@
   "manifest_version": 3,
   "name": "VidTune — Speed, Volume & PiP",
   "short_name": "VidTune",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Lightweight video speed and precise volume controls up to 300%.",
   "action": {
     "default_title": "VidTune",
     "default_popup": "popup.html"
   },
   "options_ui": { "page": "options.html", "open_in_tab": true },
-  "permissions": ["activeTab", "scripting", "storage"],
+  "permissions": ["activeTab", "scripting", "storage", "webNavigation"],
   "background": {
     "scripts": ["src/background.js"],
     "service_worker": "src/background.js",
@@ -17,7 +17,8 @@
   },
   "content_scripts": [{
     "matches": ["<all_urls>"],
-    "js": ["src/shortcuts.js"],
+    "js": ["src/content.js", "src/shortcuts.js"],
+    "all_frames": true,
     "run_at": "document_start"
   }],
   "browser_specific_settings": {

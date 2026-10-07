@@ -75,6 +75,7 @@ function sendVolume(volume, persist) {
 function renderVideoState(state) {
   if (state?.error) throw new Error(state.error);
   summary.textContent = summarizeVideos(state.count);
+  summary.removeAttribute('title');
   setStatus(state.boostUnavailable ? 'Boost unavailable for this video' : state.boostPending ? 'Play video to enable boost' : state.hasVideo ? 'Ready' : 'No video',
     state.boostUnavailable ? 'error' : state.hasVideo && !state.boostPending ? 'ready' : '');
   renderSpeed(state.speed, state.hasVideo);
@@ -86,8 +87,9 @@ async function scan() {
   setStatus('Checking…');
   try {
     renderVideoState(await sendToVideo(currentTab.id, { type: 'GET_STATE' }));
-  } catch {
+  } catch (error) {
     summary.textContent = 'This page does not allow video scanning.';
+    summary.title = String(error);
     setStatus('Unavailable', 'error');
   }
 }

@@ -21,13 +21,14 @@ for (const file of files) {
   if (/setInterval\s*\(/.test(source)) throw new Error(`Polling is prohibited: ${file}`);
 }
 const manifest = JSON.parse(await readFile('manifest.json', 'utf8'));
-const expected = ['activeTab', 'scripting', 'storage'];
+const expected = ['activeTab', 'scripting', 'storage', 'webNavigation'];
 if (JSON.stringify(manifest.permissions) !== JSON.stringify(expected) || manifest.host_permissions) {
   throw new Error('Unexpected extension permissions');
 }
 if (manifest.content_scripts?.length !== 1 ||
     JSON.stringify(manifest.content_scripts[0].matches) !== JSON.stringify(['<all_urls>']) ||
-    JSON.stringify(manifest.content_scripts[0].js) !== JSON.stringify(['src/shortcuts.js'])) {
+    JSON.stringify(manifest.content_scripts[0].js) !== JSON.stringify(['src/content.js', 'src/shortcuts.js']) ||
+    manifest.content_scripts[0].all_frames !== true) {
   throw new Error('Unexpected content-script access');
 }
 console.log(`Lint passed (${files.length} JavaScript files, manifest permissions checked).`);

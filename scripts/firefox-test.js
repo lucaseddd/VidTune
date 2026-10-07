@@ -23,9 +23,11 @@ wav.writeUInt16LE(8, 34);
 wav.write('data', 36);
 wav.writeUInt32LE(48000, 40);
 const wavUrl = `data:audio/wav;base64,${wav.toString('base64')}`;
-const server = createServer((_request, response) => {
+const server = createServer((request, response) => {
   response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-  response.end(html);
+  response.end(request.url === '/frames'
+    ? `<!doctype html><title>Embedded player test</title><iframe width="800" height="500" src="http://localhost:${server.address().port}/"></iframe>`
+    : html);
 });
 await new Promise((ready) => server.listen(0, '127.0.0.1', ready));
 
@@ -71,8 +73,7 @@ try {
       browser.tabs.query({}).then((tabs) => {
         const tab = tabs.find((candidate) => candidate.url?.startsWith('http://127.0.0.1:'));
         if (!tab) throw new Error('Video test tab was not found');
-        return browser.scripting.executeScript({ target: { tabId: tab.id }, files: ['src/content.js'] })
-          .then(() => browser.tabs.sendMessage(tab.id, message));
+        return import(browser.runtime.getURL('src/browser.js')).then(({ sendToVideo }) => sendToVideo(tab.id, message));
       }).then(done, (error) => done({ error: String(error) }));
     `, message);
     if (result?.error) throw new Error(result.error);
@@ -253,7 +254,32 @@ try {
   await driver.switchTo().window(extensionHandle);
   await driver.wait(async () => (await control({ type: 'GET_STATE' })).volume === 3,
     5000, 'Saved boost did not apply after reload');
-  console.log('Firefox passed: centered slider, 0.01% to 300% boost, replacement, reload, native reset, settings and shortcuts.');
+  await driver.switchTo().window(pageHandle);
+  await driver.get(`http://127.0.0.1:${server.address().port}/frames`);
+  await driver.switchTo().frame(await driver.findElement({ css: 'iframe' }));
+  await driver.wait(async () => await driver.executeScript("return !!document.getElementById('main')"), 5000);
+  await driver.switchTo().defaultContent();
+  await driver.switchTo().window(extensionHandle);
+  await driver.wait(async () => (await control({ type: 'GET_STATE' })).count === 1,
+    5000, 'Cross-origin frame video was not detected');
+  const framed = await control({ type: 'SET_SPEED', speed: 1.8 });
+  if (framed.speed !== 1.8) throw new Error('Speed did not reach the embedded video');
+  await control({ type: 'SET_VOLUME', volume: 0.25 });
+  await driver.switchTo().window(pageHandle);
+  await driver.switchTo().frame(await driver.findElement({ css: 'iframe' }));
+  await waitForRate('main', 1.8);
+  await waitForVolume('main', 0.25);
+  await driver.findElement({ css: 'body' }).sendKeys('v');
+  await waitForRate('main', 2);
+  await driver.executeScript("const video = document.getElementById('main'); video.src = arguments[0]; video.loop = true", wavUrl);
+  await driver.findElement({ id: 'main' }).click();
+  await driver.executeScript("const video = document.getElementById('main'); video.muted = true; return video.play()");
+  await driver.executeScript("document.getElementById('main').muted = false");
+  await driver.switchTo().defaultContent();
+  await driver.switchTo().window(extensionHandle);
+  const boostedFrame = await control({ type: 'SET_VOLUME', volume: 3 });
+  if (boostedFrame.volume !== 3 || boostedFrame.boostUnavailable) throw new Error('Embedded audio boost did not activate');
+  console.log('Firefox passed: cross-origin iframe detection, speed, volume, 300% boost and shortcuts; existing playback tests.');
 } finally {
   if (driver) await driver.quit();
   await new Promise((done) => server.close(done));
