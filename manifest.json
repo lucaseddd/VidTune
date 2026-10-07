@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "VidTune — Speed, Volume & PiP",
   "short_name": "VidTune",
-  "version": "0.5.5",
+  "version": "0.5.6",
   "description": "Lightweight video speed and precise volume controls up to 300%.",
   "action": {
     "default_title": "VidTune",

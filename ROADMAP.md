@@ -2,9 +2,9 @@
 
 ## Current checkpoint
 
-- Version: 0.5.5
+- Version: 0.5.6
 - Phase: 5 — Advanced Audio / Volume Boost
-- Status: v0.5.5 stronger boost and per-tab scope validated; user listening test pending
+- Status: v0.5.6 independent per-tab volumes validated; user testing pending
 
 ## Completed
 
@@ -56,6 +56,11 @@
 - Once an element is routed into Web Audio, its graph remains connected while that page is open, including at native volume; the browser cannot reliably undo the source association. Compression reduces clipping risk but cannot repair audio already distorted by its source.
 - Live-site automation for YouTube, Vimeo, Twitch and Reddit was rejected by automatic approval review because it would widen test host access. This needs explicit user authorization before automation can run.
 - `npm audit --omit=dev` found no runtime vulnerabilities. Three high-severity advisories remain in the Mozilla `web-ext` development dependency chain; they are not included in the browser packages.
+
+## v0.5.6 test results
+
+- Each tab can now save a separate volume in session storage. Several tabs can be scoped at once, and the global volume remains available to unscoped tabs. Turning off one tab’s scope returns only that tab to the global preference. An existing v0.5.5 single-tab scope is migrated on the first change.
+- Firefox integration verified two simultaneous tab volumes, independent slider changes, global changes, reload retention and disabling one scope without affecting the other.
 
 ## v0.5.5 test results
 

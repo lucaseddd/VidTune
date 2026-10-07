@@ -360,12 +360,22 @@ try {
       const enabled = await browser.runtime.sendMessage({ type: 'SET_VOLUME_SCOPE', tabId: selected.id, enabled: true, volume: 3 });
       await send(selected, 'SYNC_VOLUME_SCOPE');
       const selectedState = await send(selected, 'SET_VOLUME', 2);
-      const otherState = await send(other, 'GET_STATE');
-      done({ selectedId: selected.id, enabled, selectedState, otherState });
+      const otherGlobal = await send(other, 'GET_STATE');
+      const globalChanged = await send(other, 'SET_VOLUME', 1.5);
+      const selectedAfterGlobal = await send(selected, 'GET_STATE');
+      const enabledOther = await browser.runtime.sendMessage({ type: 'SET_VOLUME_SCOPE', tabId: other.id, enabled: true, volume: 1.5 });
+      await send(other, 'SYNC_VOLUME_SCOPE');
+      const otherScoped = await send(other, 'SET_VOLUME', 3);
+      const selectedAfterOther = await send(selected, 'GET_STATE');
+      done({ selectedId: selected.id, otherId: other.id, enabled, enabledOther,
+        selectedState, otherGlobal, globalChanged, selectedAfterGlobal, otherScoped, selectedAfterOther });
     })().catch(error => done({ error: String(error) }));
   `);
-  if (scopeTest.error || scopeTest.enabled.error || scopeTest.selectedState.volume !== 2 || scopeTest.otherState.volume !== 1) {
-    throw new Error(`Tab-only boost leaked into another tab: ${JSON.stringify(scopeTest)}`);
+  if (scopeTest.error || scopeTest.enabled.error || scopeTest.enabledOther.error ||
+      scopeTest.selectedState.volume !== 2 || scopeTest.otherGlobal.volume !== 3 ||
+      scopeTest.globalChanged.volume !== 1.5 || scopeTest.selectedAfterGlobal.volume !== 2 ||
+      scopeTest.otherScoped.volume !== 3 || scopeTest.selectedAfterOther.volume !== 2) {
+    throw new Error(`Independent tab volumes failed: ${JSON.stringify(scopeTest)}`);
   }
   await driver.switchTo().window(pageHandle);
   await driver.navigate().refresh();
@@ -378,17 +388,30 @@ try {
     })().then(done, error => done({ error: String(error) }));
   `, scopeTest.selectedId);
   if (reloadScope.volume !== 2) throw new Error(`Scoped boost was lost after reload: ${JSON.stringify(reloadScope)}`);
+  await driver.switchTo().window(otherHandle);
+  await driver.navigate().refresh();
+  await driver.switchTo().window(extensionHandle);
+  const independentReload = await driver.executeAsyncScript(`
+    const done = arguments[arguments.length - 1];
+    (async () => {
+      const { sendToVideo } = await import(browser.runtime.getURL('src/browser.js'));
+      return sendToVideo(arguments[0], { type: 'GET_STATE' });
+    })().then(done, error => done({ error: String(error) }));
+  `, scopeTest.otherId);
+  if (independentReload.volume !== 3) throw new Error(`Second tab lost its volume: ${JSON.stringify(independentReload)}`);
   const restored = await driver.executeAsyncScript(`
     const done = arguments[arguments.length - 1];
     (async () => {
       const result = await browser.runtime.sendMessage({ type: 'SET_VOLUME_SCOPE', tabId: arguments[0], enabled: false });
       const settings = (await browser.storage.local.get('settings')).settings;
-      return { result, volume: settings.volume };
+      const other = await browser.runtime.sendMessage({ type: 'GET_VOLUME_SCOPE', tabId: arguments[1] });
+      return { result, volume: settings.volume, other };
     })().then(done, error => done({ error: String(error) }));
-  `, scopeTest.selectedId);
-  if (restored.error || restored.volume !== 3) throw new Error('Global volume was not restored after disabling tab-only mode');
-  await driver.switchTo().window(otherHandle);
-  console.log('Firefox passed: 8×/32× gain, tab-only isolation and reload, CORS recovery, fallback and existing controls.');
+  `, scopeTest.selectedId, scopeTest.otherId);
+  if (restored.error || restored.volume !== 1.5 || !restored.other.active || restored.other.volume !== 3) {
+    throw new Error(`Disabling one tab changed another: ${JSON.stringify(restored)}`);
+  }
+  console.log('Firefox passed: two independent tab volumes, reload, global changes, 8×/32× gain and existing controls.');
 } finally {
   if (driver) await driver.quit();
   await new Promise((done) => server.close(done));

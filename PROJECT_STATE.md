@@ -2,9 +2,9 @@
 
 - Firefox window policy: reuse the existing manual test session in `work/manual-session.json`; keep only one visible VidTune test window with uBlock. Close obsolete test windows when replacing a session. Run automated Firefox checks headlessly. Do not create another visible window for an update or disturb the prepared player unnecessarily.
 
-- Current version: 0.5.5
+- Current version: 0.5.6
 - Current branch: main
-- Current checkpoint: `v0.5.5`, locally validated; private remote `origin` at `https://github.com/lucaseddd/VidTune.git`. Live-site confirmation remains pending.
+- Current checkpoint: `v0.5.6`, locally validated; private remote `origin` at `https://github.com/lucaseddd/VidTune.git`. Live-site confirmation remains pending.
 - Architecture: native MV3 popup and separate `options.html` page; `src/browser.js` browser API adapter, `src/settings.js` validated local preferences, `src/shortcuts.js` configurable page key listener and saved-preference trigger, `src/content.js` on-demand video controller, native volume, lazy Web Audio boost, seek handler and speed indicator, `src/popup.js` compact controls, `src/volume.js` slider mapping, `src/options.js` advanced settings. Build outputs are `dist/` for Firefox and `dist-chromium/` for Chromium.
 - Build: `npm ci`, `npm run build`; package: `npm run package`.
 - Validation: `npm run lint`, `npm test`, `npm run lint:firefox`, `npm run test:firefox` after build.
@@ -19,3 +19,5 @@
 - v0.5.4: user wants 300% to be extreme. Above 100%, gain is now 4 ** (volume - 1), reaching 16× at 300%; labels denote boost scale, not linear signal amplitude. Headless Firefox measured 4.00× / 16.00×, and integration tests passed. Keep the single existing manual Firefox session; refresh only to replace its old audio graph.
 
 - v0.5.5: user requested doubled boost values and Only this tab. New gain curve reaches 4×/8×/16×/32× at 150/200/250/300%. Background manages single selected tab in storage.session, temporarily caps global volume at 100%, restores prior global volume when disabled, clears scope on tab close. The selected tab retains its scoped volume across reload. Firefox integration covers isolation, scoped changes, reload and restore. Keep only one visible manual Firefox window with uBlock and VidTune.
+
+- v0.5.6: each checked tab now has an independent session volume; multiple scopes can coexist. Unchecked tabs use and can change the global volume. The old v0.5.5 single scope migrates when changed. Firefox integration confirms independent volumes and reload. Use the one existing manual Firefox window with uBlock; update there, no duplicate windows.

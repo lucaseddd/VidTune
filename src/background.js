@@ -3,51 +3,55 @@ import { sendToFrame } from './browser.js';
 const api = globalThis.browser ?? globalThis.chrome;
 const actions = new Set(['INCREASE', 'DECREASE', 'RESET', 'SEEK_BACKWARD', 'SEEK_FORWARD']);
 
-async function volumeScope() {
-  return (await api.storage.session.get('volumeScope')).volumeScope ?? null;
+let scopeWrites = Promise.resolve();
+
+async function volumeScopes() {
+  const { volumeScopes, volumeScope } = await api.storage.session.get(['volumeScopes', 'volumeScope']);
+  if (volumeScopes) return volumeScopes;
+  return volumeScope?.tabId ? { [volumeScope.tabId]: volumeScope.volume } : {};
 }
 
-api.tabs.onRemoved.addListener(async (tabId) => {
-  if ((await volumeScope())?.tabId === tabId) await api.storage.session.remove('volumeScope');
+function changeScopes(update) {
+  const task = scopeWrites.then(async () => {
+    const scopes = await volumeScopes();
+    const result = update(scopes);
+    await api.storage.session.set({ volumeScopes: scopes });
+    await api.storage.session.remove('volumeScope');
+    return result;
+  });
+  scopeWrites = task.catch(() => {});
+  return task;
+}
+
+api.tabs.onRemoved.addListener((tabId) => {
+  changeScopes((scopes) => { delete scopes[tabId]; }).catch(() => {});
 });
 
 api.runtime.onMessage.addListener((message, sender, respond) => {
   if (message?.type === 'GET_VOLUME_SCOPE') {
-    volumeScope().then((scope) => respond({
-      active: Boolean(scope && scope.tabId === (message.tabId ?? sender.tab?.id)),
-      volume: scope?.volume ?? 1,
-      selectedTabId: scope?.tabId ?? null
-    }), (error) => respond({ error: String(error) }));
+    volumeScopes().then((scopes) => {
+      const tabId = message.tabId ?? sender.tab?.id;
+      respond({ active: Object.hasOwn(scopes, tabId), volume: scopes[tabId] ?? 1 });
+    }, (error) => respond({ error: String(error) }));
     return true;
   }
   if (message?.type === 'SET_VOLUME_SCOPE' && Number.isInteger(message.tabId)) {
-    (async () => {
-      const old = await volumeScope();
+    changeScopes((scopes) => {
       if (message.enabled) {
-        const { settings } = await api.storage.local.get('settings');
-        const previousVolume = old?.previousVolume ?? settings?.volume ?? 1;
-        const volume = Math.max(0, Math.min(3, Number(message.volume) || 0));
-        await api.storage.session.set({ volumeScope: { tabId: message.tabId, volume, previousVolume } });
-        if ((settings?.volume ?? 1) > 1) {
-          await api.storage.local.set({ settings: { ...settings, volume: 1 } });
-        }
-      } else if (old?.tabId === message.tabId) {
-        await api.storage.session.remove('volumeScope');
-        const { settings } = await api.storage.local.get('settings');
-        await api.storage.local.set({ settings: { ...settings, volume: old.previousVolume } });
+        scopes[message.tabId] = Math.max(0, Math.min(3, Number(message.volume) || 0));
+      } else {
+        delete scopes[message.tabId];
       }
-      respond({ previousTabId: old?.tabId ?? null, scope: await volumeScope() });
-    })().catch((error) => respond({ error: String(error) }));
+      return { active: Object.hasOwn(scopes, message.tabId), volume: scopes[message.tabId] ?? 1 };
+    }).then(respond, (error) => respond({ error: String(error) }));
     return true;
   }
   if (message?.type === 'SAVE_SCOPED_VOLUME' && sender.tab?.id) {
-    (async () => {
-      const scope = await volumeScope();
-      if (scope?.tabId !== sender.tab.id) return respond({ active: false });
-      const volume = Math.max(0, Math.min(3, Number(message.volume) || 0));
-      await api.storage.session.set({ volumeScope: { ...scope, volume } });
-      respond({ active: true });
-    })().catch((error) => respond({ error: String(error) }));
+    changeScopes((scopes) => {
+      if (!Object.hasOwn(scopes, sender.tab.id)) return { active: false };
+      scopes[sender.tab.id] = Math.max(0, Math.min(3, Number(message.volume) || 0));
+      return { active: true };
+    }).then(respond, (error) => respond({ error: String(error) }));
     return true;
   }
   if (!sender.tab?.id) return;
