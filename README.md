@@ -1,6 +1,6 @@
 # VidTune
 
-**VidTune — Speed & Volume** is a lightweight browser extension under development. Version 0.5.7 improves player discovery and audio compatibility.
+**VidTune — Speed & Volume** is a lightweight browser extension under development. Version 0.5.8 validates Chrome and Edge compatibility and protects playback when a media server cannot restore the current position.
 
 ## Speed controls
 
@@ -18,13 +18,13 @@
 
 ## Volume control
 
-Videos inside accessible web iframes are supported, including cross-origin players. Reload existing pages after updating to v0.5.7. The popup prefers visible players, then playback state and size. Keyboard shortcuts work while the video frame has focus.
+Videos inside accessible web iframes are supported, including cross-origin players. Reload existing pages after updating to v0.5.8. The popup prefers visible players, then playback state and size. Keyboard shortcuts work while the video frame has focus.
 
 - The slider starts at 100% in the center. Move left toward 0%, or right for up to 300% boost. The 0%–100% half keeps fine control near silence: position 1 is 0.01%, position 10 is 1%, and position 50 is 25%.
 - Up to 100%, VidTune uses the video's native volume control. Above 100%, it creates a Web Audio gain path with peak compression for the selected video. Compression begins near full scale (−1 dB), so normal audio retains the requested amplification instead of being heavily reduced. Above 100%, the percentage is a progressive boost scale: 150% applies 4× gain, 200% applies 8×, 250% applies 16×, and 300% applies up to 32× (+30 dB). Gain transitions are smoothed over 30 ms. Peak compression can reduce the maximum on loud sources; perceived loudness depends on the source and output device. That path is created only after boost is requested and the video starts playing.
 - **Only this tab** in the popup saves a separate volume for the current tab. You can turn it on in several tabs and choose a different volume in each one. Tabs without it continue to use the global saved volume and their slider remains available. A tab’s separate volume survives a page reload and expires when the tab closes. Turning the option off returns that tab to the current global setting.
 - Volume is saved locally and applied to new videos, including videos replaced by a site without navigation. Adjusting the slider above 0% also unmutes a muted video. A boosted video can be returned to native volume by moving the slider to 100% or lower.
-- When cross-origin media was loaded without CORS, VidTune checks whether its server permits audio processing. If it does, the video reconnects with CORS enabled, restoring its position, playback state and speed. This can briefly interrupt playback. A failed reconnection restores the original loading mode. Protected media and servers that reject the compatibility check keep native audio.
+- When cross-origin media was loaded without CORS, VidTune checks whether its server permits audio processing. If it does, the video reconnects with CORS enabled, restoring its position, playback state and speed. This can briefly interrupt playback. A failed reconnection restores the original loading mode. Protected media, servers that reject the compatibility check, and streams whose current position is not seekable keep native audio. Non-seekable playback is not reloaded to enable boost, preventing an unexpected restart.
 - Some cross-origin media cannot safely be routed through Web Audio. VidTune keeps native playback at 100% and shows **Boost unavailable for this video** on those videos. A video paused before boost shows **Play video to enable boost**.
 
 ## Development
@@ -37,12 +37,15 @@ npm run lint
 npm run lint:firefox
 npm test
 npm run test:firefox
-npm run test:chromium
+npm run test:chrome
+npm run test:edge
 npm run package
 npm run firefox
 ```
 
-`npm run firefox` opens a temporary Firefox development window with VidTune and uBlock Origin loaded. Pass a URL after `--` to open a test page. The launcher and integration tests reuse the uBlock package already installed in a Windows Firefox profile; on other systems, set `UBLOCK_XPI` to its path. They stop if that package is unavailable. Alternatively, load `dist/manifest.json` through `about:debugging` → **This Firefox** → **Load Temporary Add-on**. In Chromium, use **Load unpacked** and select `dist-chromium/`. `npm run test:firefox` runs headlessly. `npm run test:chromium` uses installed Microsoft Edge headlessly with local fixtures; it checks the Chromium package without visiting external player sites. The manual launcher reuses an existing test window when available.
+`npm run firefox` opens a temporary Firefox development window with VidTune and uBlock Origin loaded. Pass a URL after `--` to open a test page. The launcher and integration tests reuse the uBlock package already installed in a Windows Firefox profile; on other systems, set `UBLOCK_XPI` to its path. They stop if that package is unavailable. Alternatively, load `dist/manifest.json` through `about:debugging` → **This Firefox** → **Load Temporary Add-on**. In Chromium, use **Load unpacked** and select `dist-chromium/`. `npm run test:firefox` runs headlessly. `npm run test:edge` uses installed Microsoft Edge; `npm run test:chrome` uses official stable Chrome for Testing (downloaded and cached by Selenium if necessary). Both run headlessly with local fixtures. `npm run test:chromium` remains an alias for the Edge test. The manual launcher reuses an existing test window when available.
+
+Verified for v0.5.8 on Chrome for Testing 155.0.8059.39 and Edge 154.0.4258.62: popup controls and shortcuts, 0.1× spinner steps, page shortcuts and typing protection, speed reset recovery, native volume, rendered 8×/32× audio gain, independent tab volumes with reload/close cleanup, shadow player replacement, cross-origin iframes, CORS recovery (including rejected HEAD), and native playback fallback when CORS or seeking is unavailable. Firefox integration also passed. These controlled fixtures do not guarantee compatibility with every public site, DRM player or browser policy. The popup is tested as an extension page; browser-toolbar popup placement is not automated.
 
 The temporary Firefox installation is removed when Firefox restarts. Rebuild and reload after source changes.
 

@@ -218,6 +218,11 @@
         time: video.currentTime, paused: video.paused, speed: video.playbackRate,
         muted: video.muted, volume: video.volume, crossOrigin: video.getAttribute('crossorigin')
       };
+      // Reloading a non-seekable stream would restart it and lose the current position.
+      if (snapshot.time > 0.1 && !Array.from({ length: video.seekable.length }, (_, index) =>
+        snapshot.time >= video.seekable.start(index) && snapshot.time <= video.seekable.end(index)).some(Boolean)) {
+        return false;
+      }
       const sourceSignature = () => JSON.stringify([video.getAttribute('src'),
         [...video.querySelectorAll('source')].map((item) => item.getAttribute('src'))]);
       const originalSignature = sourceSignature();
