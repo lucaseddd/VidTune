@@ -1,5 +1,7 @@
 # Project state
 
+- Firefox window policy: reuse the existing manual test session in `work/manual-session.json`; keep only one visible VidTune test window with uBlock. Close obsolete test windows when replacing a session. Run automated Firefox checks headlessly. Do not create another visible window for an update or disturb the prepared player unnecessarily.
+
 - Current version: 0.5.3
 - Current branch: main
 - Current checkpoint: `v0.5.3`, locally validated; private remote `origin` at `https://github.com/lucaseddd/VidTune.git`. Live-site confirmation remains pending.

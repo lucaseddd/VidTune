@@ -41,7 +41,7 @@ await new Promise((ready) => server.listen(0, '127.0.0.1', ready));
 
 let driver;
 try {
-  const options = new firefox.Options().setBinary('C:\\Program Files\\Mozilla Firefox\\firefox.exe');
+  const options = new firefox.Options().setBinary('C:\\Program Files\\Mozilla Firefox\\firefox.exe').addArguments('-headless');
   const service = new firefox.ServiceBuilder().addArguments('--allow-system-access');
   driver = await new Builder().forBrowser('firefox').setFirefoxOptions(options).setFirefoxService(service).build();
   await installTestAddons(driver);
