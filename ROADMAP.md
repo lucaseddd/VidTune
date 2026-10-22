@@ -109,7 +109,7 @@
 
 ## Next milestone
 
-The modular 0.8.2 version lives on `feature/modular-popup` for user testing. Keep the previous line of development on `main`. Mozilla signing still needs account sign-in; do not submit this branch as a public listing.
+The modular 0.8.2 version lives on `feature/modular-popup` for user testing. Keep the previous line of development on `main`. The Firefox package was submitted to Mozilla as unlisted on 22 October 2026, with source code and reviewer notes; automated validation found no errors or warnings. Signature is pending. After the signed XPI is available, install it permanently from Firefox's Add-ons Manager. Future unlisted versions need manual updates until an update URL is configured.
 
 ## v0.7.0 test results
 
