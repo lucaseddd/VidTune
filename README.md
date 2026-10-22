@@ -1,6 +1,6 @@
 # VidTune
 
-**VidTune — Modular Controls** is a lightweight browser extension under development. The `feature/modular-popup` branch contains version 0.8.2, with a configurable popup and mono audio.
+**VidTune — Modular Controls** is a lightweight browser extension for video playback controls. The `feature/modular-popup` branch contains version 0.8.3, with a configurable popup and mono audio.
 
 ## Modular popup
 

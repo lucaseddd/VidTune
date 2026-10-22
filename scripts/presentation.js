@@ -90,9 +90,9 @@ try {
   await writeFile(`${output}/screenshots/settings.png`, Buffer.from(captures.settings, 'base64'));
   await driver.get(local);
   const slides = [
-    { name: '01-playback-speed', title: ['Your video.', 'Your pace.'], body: ['Quick presets. Precise adjustments.', 'A slower. D faster. Q reset.'], key: 'playback-speed', label: 'PLAYBACK SPEED' },
-    { name: '02-volume-boost', title: ['Turn it up.', 'Your way.'], body: ['Boost quiet videos up to 300%.', 'Choose a different volume for each tab.'], key: 'volume-boost', label: 'VOLUME BOOST', note: 'Boost availability depends on the video source.' },
-    { name: '03-smart-organize', title: ['Less clutter.', 'More control.'], body: ['Choose 2, 5 or 10 tools.', 'Let Smart Organize bring them together.'], key: 'layout-10', label: 'SMART ORGANIZE' }
+    { name: '01-playback-speed', title: ['Playback', 'speed'], body: ['Preset or custom speed: 0.1×–16×.', 'A and D: 0.10× steps. Q: reset.'], key: 'playback-speed', label: 'VIDEO SPEED' },
+    { name: '02-volume-boost', title: ['Volume', 'and audio'], body: ['Set volume from 0% to 300%.', 'Mono and per-tab volume are optional.'], key: 'volume-boost', label: 'AUDIO CONTROLS', note: 'Boost above 100% depends on the video source.' },
+    { name: '03-smart-organize', title: ['Layouts', 'and tools'], body: ['Choose 2, 5 or 10 controls.', 'Smart Organize groups related tools.'], key: 'layout-10', label: 'CUSTOM LAYOUT' }
   ];
   for (let index = 0; index < slides.length; index++) {
     const png = await driver.executeAsyncScript(`
