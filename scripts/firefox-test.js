@@ -89,6 +89,14 @@ try {
     5000, 'Extension tab did not locate the video tab');
   await driver.executeScript('const select=document.getElementById("tool-count");select.value="10";select.dispatchEvent(new Event("change",{bubbles:true}))');
   await driver.wait(async () => await driver.executeScript('return document.querySelectorAll(".module-row").length === 10'), 5000);
+  await driver.executeScript('document.getElementById("smart-organize").click()');
+  await driver.wait(async () => await driver.executeScript('return !!document.querySelector(".speed-workspace")'), 5000);
+  await driver.findElement({ id: 'volume-slider' }).sendKeys('d');
+  await driver.wait(async () => (await driver.findElement({ id: 'speed-value' }).getText()) === '1.1×', 5000);
+  await driver.findElement({ id: 'tool-count' }).sendKeys('a');
+  await driver.wait(async () => (await driver.findElement({ id: 'speed-value' }).getText()) === '1×', 5000);
+  await driver.executeScript('document.getElementById("smart-organize").click()');
+  await driver.wait(async () => await driver.executeScript('return !document.querySelector(".speed-workspace")'), 5000);
   if (await driver.findElement({ id: 'volume-slider' }).getAttribute('value') !== '100') {
     throw new Error('100% volume did not start at the slider midpoint');
   }

@@ -2,7 +2,7 @@
 
 ## Current checkpoint
 
-- Version: 0.8.1 on `feature/modular-popup`
+- Version: 0.8.2 on `feature/modular-popup`
 - Phase: separate modular popup version
 - Status: 2/5/10 slot selection, mono audio and Smart Organize implemented; automated browser checks passed, manual user testing pending
 
@@ -109,7 +109,7 @@
 
 ## Next milestone
 
-The modular 0.8.1 version lives on `feature/modular-popup` for user testing. Keep the previous line of development on `main`. Mozilla signing still needs account sign-in; do not submit this branch as a public listing.
+The modular 0.8.2 version lives on `feature/modular-popup` for user testing. Keep the previous line of development on `main`. Mozilla signing still needs account sign-in; do not submit this branch as a public listing.
 
 ## v0.7.0 test results
 

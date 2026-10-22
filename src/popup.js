@@ -67,6 +67,7 @@ function renderModules() {
     row.append(number, select, title, body);
     return row;
   }));
+  if (settings.smartOrganize) organizeTools();
   choices.replaceChildren(...settings.moduleLayouts[count].map((name, index) => {
     const label = document.createElement('label');
     label.textContent = `Tool ${index + 1}`;
@@ -87,6 +88,56 @@ function renderModules() {
   renderVideoState(videoState);
 }
 
+function organizeTools() {
+  const rows = new Map([...list.children].map((row) => [row.dataset.module, row]));
+  const group = (className, label) => {
+    const section = document.createElement('section');
+    section.className = className;
+    section.setAttribute('aria-label', label);
+    return section;
+  };
+  const speed = rows.get('speed');
+  if (speed) {
+    const section = group('speed-workspace', 'Playback speed');
+    section.append(speed, document.querySelector('#smart-speed-extra').content.cloneNode(true));
+    for (const value of settings.presets) {
+      const button = document.createElement('button');
+      button.type = 'button'; button.dataset.speed = String(value); button.textContent = formatSpeed(value);
+      section.querySelector('.speed-presets').append(button);
+    }
+    for (const name of ['presets', 'customSpeed', 'resetSpeed']) {
+      const row = rows.get(name);
+      if (row) { row.hidden = true; section.append(row); rows.delete(name); }
+    }
+    list.append(section); rows.delete('speed');
+  }
+  const quick = group('quick-actions', 'Video actions');
+  for (const name of ['seekBackward', 'seekForward', 'pip']) {
+    if (rows.has(name)) { quick.append(rows.get(name)); rows.delete(name); }
+  }
+  if (quick.children.length === 1 && quick.firstElementChild.dataset.module === 'pip' && speed) {
+    const pip = quick.firstElementChild;
+    pip.classList.add('pip-inline');
+    list.querySelector('.speed-workspace').append(pip);
+  } else if (quick.children.length) list.append(quick);
+  const volume = rows.get('volume');
+  if (volume) {
+    const section = group('audio-workspace', 'Volume and audio');
+    section.append(volume, document.querySelector('#smart-volume-extra').content.cloneNode(true));
+    const switches = group('audio-switches', 'Audio options');
+    for (const name of ['mono', 'tabVolume']) {
+      if (rows.has(name)) { switches.append(rows.get(name)); rows.delete(name); }
+    }
+    if (switches.children.length) section.append(switches);
+    list.append(section); rows.delete('volume');
+  }
+  for (const row of rows.values()) list.append(row);
+  for (const [action, symbol] of [['SEEK_BACKWARD', '↶'], ['SEEK_FORWARD', '↷']]) {
+    const button = quick.querySelector(`[data-action="${action}"]`);
+    if (button) button.textContent = `${symbol} ${settings.seekSeconds}s`;
+  }
+}
+
 function renderVideoState(state) {
   if (!state || state.error) throw new Error(state?.error || 'Video unavailable');
   videoState = state;
@@ -101,6 +152,11 @@ function renderVideoState(state) {
   if (speedValue) speedValue.textContent = formatSpeed(speed);
   const manual = document.querySelector('#manual-value');
   if (manual && document.activeElement !== manual) manual.value = String(speed);
+  const smartManual = document.querySelector('#smart-manual');
+  if (smartManual && document.activeElement !== smartManual) smartManual.value = String(speed);
+  for (const input of [manual, smartManual]) if (input) input.step = String(settings.speedStep);
+  for (const button of list.querySelectorAll('[data-speed]')) button.setAttribute('aria-pressed', String(Number(button.dataset.speed) === speed));
+  for (const button of list.querySelectorAll('[data-volume]')) button.setAttribute('aria-pressed', String(Number(button.dataset.volume) === state.volume));
   const slider = document.querySelector('#volume-slider');
   if (slider && document.activeElement !== slider) slider.value = String(volumeToPosition(state.volume));
   const volumeValue = document.querySelector('#volume-value');
@@ -194,10 +250,14 @@ list.addEventListener('input', (event) => {
 });
 
 list.addEventListener('click', (event) => {
+  const speedPreset = event.target.closest('[data-speed]');
+  if (speedPreset) { send({ type: 'SET_SPEED', speed: Number(speedPreset.dataset.speed) }); return; }
+  const volumePreset = event.target.closest('[data-volume]');
+  if (volumePreset) { sendVolume(Number(volumePreset.dataset.volume), true); return; }
   const action = event.target.closest('[data-action]')?.dataset.action;
   if (!action) return;
-  if (action === 'CUSTOM_SPEED') {
-    const input = document.querySelector('#manual-value');
+  if (action === 'CUSTOM_SPEED' || action === 'SMART_SPEED') {
+    const input = document.querySelector(action === 'SMART_SPEED' ? '#smart-manual' : '#manual-value');
     const speed = Number(input.value);
     if (!input.value.trim() || !Number.isFinite(speed) || speed < 0.1 || speed > 16) {
       setStatus('Enter 0.1×–16×', 'error');
@@ -218,7 +278,10 @@ document.querySelector('#open-settings').addEventListener('click', () => browser
 
 document.addEventListener('keydown', (event) => {
   if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
-  if (event.composedPath().some((element) => element?.closest?.('input:not([type="radio"]):not([type="checkbox"]), textarea, select, [contenteditable], [role="textbox"]'))) return;
+  if (event.code === 'Enter' && event.target.id === 'smart-manual') {
+    event.preventDefault(); list.querySelector('[data-action="SMART_SPEED"]').click(); return;
+  }
+  if (event.composedPath().some((element) => element?.closest?.('input:not([type="range"]):not([type="radio"]):not([type="checkbox"]), textarea, [contenteditable], [role="textbox"]'))) return;
   const shortcut = Object.keys(settings?.shortcuts ?? {}).find((key) => settings.shortcuts[key] === event.code);
   if (!shortcut || (shortcut.startsWith('seek') && !settings.seekEnabled)) return;
   const action = {
