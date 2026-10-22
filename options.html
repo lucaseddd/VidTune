@@ -9,7 +9,7 @@
 </head>
 <body>
   <main>
-    <header><div class="mark" aria-hidden="true">▶</div><div><p class="eyebrow">VidTune</p><h1>Settings</h1><p class="intro">Keep the player controls simple. Tune the details here.</p></div></header>
+    <header><img class="mark" src="icons/icon.svg" width="46" height="46" alt=""><div><p class="eyebrow">VidTune</p><h1>Settings</h1><p class="intro">Keep the player controls simple. Tune the details here.</p></div></header>
     <form id="settings-form" novalidate>
       <section aria-labelledby="speed-title">
         <h2 id="speed-title">Speed</h2>
@@ -29,7 +29,7 @@
         </div>
       </section>
       <section aria-labelledby="seek-title">
-        <div class="section-heading"><div><h2 id="seek-title">Skip backward and forward</h2><p class="hint">Optional keyboard controls. No extra buttons appear in the popup.</p></div><label class="switch"><input id="seek-enabled" type="checkbox"> Enable</label></div>
+        <div class="section-heading"><div><h2 id="seek-title">Skip backward and forward</h2><p class="hint">Set keyboard shortcuts and the distance to skip. Add skip controls through Choose tools.</p></div><label class="switch"><input id="seek-enabled" type="checkbox"> Enable</label></div>
         <label class="field">Jump length <input id="seek-seconds" type="number" min="1" max="60" step="1" required><span>seconds</span></label>
         <div class="shortcut-grid two">
           <label>Backward <select id="key-seek-backward"></select></label>

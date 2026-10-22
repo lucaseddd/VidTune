@@ -2,12 +2,14 @@
   "manifest_version": 3,
   "name": "VidTune — Modular Controls",
   "short_name": "VidTune",
-  "version": "0.8.2",
+  "version": "0.8.3",
   "description": "Customizable video controls for speed, volume, mono audio, and Picture in Picture.",
   "action": {
+    "default_icon": { "16": "icons/icon-16.png", "32": "icons/icon-32.png", "64": "icons/icon-64.png" },
     "default_title": "VidTune",
     "default_popup": "popup.html"
   },
+  "icons": { "48": "icons/icon-48.png", "96": "icons/icon-96.png", "128": "icons/icon-128.png" },
   "options_ui": { "page": "options.html", "open_in_tab": true },
   "permissions": ["activeTab", "scripting", "storage", "webNavigation"],
   "background": {
