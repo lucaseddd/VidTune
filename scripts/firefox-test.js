@@ -87,7 +87,7 @@ try {
   if (!(await driver.findElement({ id: 'speed-value' }).isDisplayed())) throw new Error('Popup speed control did not render');
   await driver.wait(async () => await driver.executeScript('return document.querySelector("#video-summary").textContent === "1 video found"'),
     5000, 'Extension tab did not locate the video tab');
-  await driver.findElement({ css: 'input[name="module-count"][value="10"]' }).click();
+  await driver.executeScript('const select=document.getElementById("tool-count");select.value="10";select.dispatchEvent(new Event("change",{bubbles:true}))');
   await driver.wait(async () => await driver.executeScript('return document.querySelectorAll(".module-row").length === 10'), 5000);
   if (await driver.findElement({ id: 'volume-slider' }).getAttribute('value') !== '100') {
     throw new Error('100% volume did not start at the slider midpoint');

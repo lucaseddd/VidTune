@@ -90,7 +90,7 @@ try {
   if (process.argv.includes('--screenshot')) {
     await writeFile('work/popup-preview-chrome.png', Buffer.from(await driver.findElement({ css: '.shell' }).takeScreenshot(), 'base64'));
   }
-  await driver.findElement({ css: 'input[name="module-count"][value="10"]' }).click();
+  await driver.executeScript('const select=document.getElementById("tool-count");select.value="10";select.dispatchEvent(new Event("change",{bubbles:true}))');
   await driver.wait(async () => await driver.executeScript('return document.querySelectorAll(".module-row").length === 10'), 5000);
   const tenLayout = await driver.executeScript('return {height:document.querySelector(".shell").getBoundingClientRect().bottom,width:document.body.scrollWidth}');
   if (tenLayout.height > 600 || tenLayout.width !== 360) throw new Error(`Ten-module popup overflow: ${JSON.stringify(tenLayout)}`);
@@ -111,11 +111,32 @@ try {
   if (process.argv.includes('--screenshot')) {
     await writeFile('work/popup-preview-smart.png', Buffer.from(await driver.findElement({ css: '.shell' }).takeScreenshot(), 'base64'));
   }
+  await driver.executeScript('const select=document.getElementById("tool-count");select.value="5";select.dispatchEvent(new Event("change",{bubbles:true}))');
+  await driver.wait(async () => await driver.executeScript('return document.querySelector(".module-list.smart-five") !== null'), 5000);
+  const fivePositions = await driver.executeScript(`const get=(name)=>document.querySelector('.module-row[data-module="'+name+'"]').getBoundingClientRect();
+    return {speed:get('speed').bottom,mono:get('mono').top,pip:get('pip').top,
+      actionsBottom:Math.max(get('mono').bottom,get('pip').bottom),volume:get('volume').top,
+      footer:document.querySelector('.popup-footer').getBoundingClientRect().top};`);
+  if (fivePositions.mono < fivePositions.speed || fivePositions.pip < fivePositions.speed ||
+    fivePositions.volume - fivePositions.actionsBottom > 10 || fivePositions.footer < fivePositions.volume) {
+    throw new Error(`Five-tool Smart Organize spacing failed: ${JSON.stringify(fivePositions)}`);
+  }
+  if (process.argv.includes('--screenshot')) {
+    await writeFile('work/popup-preview-smart-5.png', Buffer.from(await driver.findElement({ css: '.shell' }).takeScreenshot(), 'base64'));
+  }
+  await driver.executeScript('document.getElementById("customize-tools").click()');
+  await driver.wait(async () => await driver.executeScript('return !document.getElementById("tool-choices").hidden && document.getElementById("module-list").hidden && document.querySelectorAll(".choice-select").length === 5'), 5000);
+  const chooserHeight = await driver.executeScript('return document.querySelector(".shell").getBoundingClientRect().bottom');
+  if (chooserHeight > 600) throw new Error(`Five-tool chooser overflow: ${chooserHeight}`);
+  await driver.executeScript('document.getElementById("customize-tools").click()');
+  await driver.wait(async () => await driver.executeScript('return document.getElementById("tool-choices").hidden && !document.getElementById("module-list").hidden'), 5000);
+  await driver.executeScript('const select=document.getElementById("tool-count");select.value="10";select.dispatchEvent(new Event("change",{bubbles:true}))');
+  await driver.wait(async () => await driver.executeScript('return document.querySelector(".module-list.smart-ten") !== null'), 5000);
   await driver.executeScript('document.getElementById("smart-organize").click()');
   await driver.wait(async () => await driver.executeScript('return document.querySelector(".module-list.smart") === null'), 5000);
-  await driver.executeScript('document.querySelectorAll("[name=module-count]")[1].click()');
+  await driver.executeScript('const select=document.getElementById("tool-count");select.value="5";select.dispatchEvent(new Event("change",{bubbles:true}))');
   await driver.wait(async () => await driver.executeScript('return document.querySelectorAll(".module-row").length === 5'), 5000);
-  await driver.executeScript('document.querySelectorAll("[name=module-count]")[2].click()');
+  await driver.executeScript('const select=document.getElementById("tool-count");select.value="10";select.dispatchEvent(new Event("change",{bubbles:true}))');
   await driver.wait(async () => await driver.executeScript('return document.querySelectorAll(".module-row").length === 10'), 5000);
   await driver.findElement({ id: 'increase' }).click();
   await driver.wait(async () => (await driver.findElement({ id: 'speed-value' }).getText()) === '1.1×', 5000);

@@ -1,12 +1,12 @@
 # VidTune
 
-**VidTune — Modular Controls** is a lightweight browser extension under development. The `feature/modular-popup` branch contains version 0.8.0, with a configurable popup and mono audio.
+**VidTune — Modular Controls** is a lightweight browser extension under development. The `feature/modular-popup` branch contains version 0.8.1, with a configurable popup and mono audio.
 
 ## Modular popup
 
-- Choose **2**, **5**, or **10** modules at the top of the popup. Each slot has a list of available functions; selecting one function already in another slot swaps the two, so every visible function is unique. Each model remembers its own selection.
+- Open the **Layout** list to choose **2 tools**, **5 tools**, or **10 tools**. Each slot has a list of available functions; selecting one function already in another slot swaps the two, so every visible function is unique. Each layout remembers its own selection.
 - Available functions: video speed, volume boost, mono audio, Picture in Picture, speed presets, custom speed, speed reset, skip backward, skip forward, and independent volume for this tab. The skip controls use the jump length from Settings.
-- Modules normally appear one below another. **Smart Organize** is optional and arranges the chosen modules in a compact two-column layout, with speed and volume given full-width rows. The 360-pixel popup stays within the browser's 600-pixel height limit even with 10 modules.
+- Tools normally appear one below another. **Smart Organize** is optional. With five tools, it places Mono and PiP as compact square controls directly above Volume Boost, while Playback Speed and Volume Boost remain full-width panels and Settings stays at the bottom. With ten tools, secondary functions use a compact two-column layout. Open **Choose tools** to edit the selections without crowding the organized view. The 360-pixel popup stays within the browser's 600-pixel height limit.
 - **Mono audio** mixes the left and right channels and sends the result to both outputs. It is saved as a global preference and follows newly loaded videos. Like volume boost, mono processing needs a usable Web Audio path; the popup reports when a video source cannot safely be routed.
 
 ## Speed controls
@@ -16,7 +16,7 @@
 - On pages containing a video, press **A** to slow down, **D** to speed up, or **Q** to reset to 1×. Holding a speed key uses normal keyboard repeat. These keys also work while the popup has focus. Shortcuts are ignored while typing in editable fields and when modifier keys are held.
 - Open **Settings** from the gear in the popup to change the speed step, preset buttons and shortcut letters. The custom number input's spinner follows the chosen step; typed values retain 0.01× precision.
 - Settings also lets you remember a speed for the current site. Site speeds apply on new visits and follow dynamically added videos.
-- Optional skip backward and forward controls live only in Settings. They start disabled with no keys assigned, and their jump length can be set from 1 to 60 seconds. They seek only inside the video's available range.
+- Optional skip backward and forward keyboard shortcuts start disabled with no keys assigned in Settings. The popup can show Skip Back and Skip Ahead tools. Their jump length can be set from 1 to 60 seconds, and they seek only inside the video's available range.
 - A small speed indicator appears at the video's upper-left corner while player controls are visible and briefly after a speed change. It ignores pointer input. YouTube's control visibility is followed directly; other players use pointer activity and a short idle timeout.
 - Videos inside open shadow roots, including nested web components, are detected for popup controls and shortcuts. Lifecycle monitoring follows replacements inside those components. Closed shadow roots are not supported.
 - If a player resets the selected non-default speed, VidTune reapplies it, with at most five corrections per second to avoid an endless conflict.
@@ -25,7 +25,7 @@
 
 ## Volume control
 
-Videos inside accessible web iframes are supported, including cross-origin players. Reload existing pages after updating to v0.8.0. The popup prefers visible players, then playback state and size. Keyboard shortcuts work while the video frame has focus.
+Videos inside accessible web iframes are supported, including cross-origin players. Reload existing pages after updating to v0.8.1. The popup prefers visible players, then playback state and size. Keyboard shortcuts work while the video frame has focus.
 
 - The slider starts at 100% in the center. Move left toward 0%, or right for up to 300% boost. The 0%–100% half keeps fine control near silence: position 1 is 0.01%, position 10 is 1%, and position 50 is 25%.
 - Up to 100%, VidTune uses the video's native volume control. Above 100%, it creates a Web Audio gain path with peak compression for the selected video. Compression begins near full scale (−1 dB), so normal audio retains the requested amplification instead of being heavily reduced. Above 100%, the percentage is a progressive boost scale: 150% applies 4× gain, 200% applies 8×, 250% applies 16×, and 300% applies up to 32× (+30 dB). Gain transitions are smoothed over 30 ms. Peak compression can reduce the maximum on loud sources; perceived loudness depends on the source and output device. That path is created only after boost is requested and the video starts playing.
@@ -59,7 +59,7 @@ npm run firefox
 
 `npm run firefox` opens a temporary Firefox development window with VidTune and uBlock Origin loaded. Pass a URL after `--` to open a test page. The launcher and integration tests reuse the uBlock package already installed in a Windows Firefox profile; on other systems, set `UBLOCK_XPI` to its path. They stop if that package is unavailable. Alternatively, load `dist/manifest.json` through `about:debugging` → **This Firefox** → **Load Temporary Add-on**. In Chromium, use **Load unpacked** and select `dist-chromium/`. `npm run test:firefox` runs headlessly. `npm run test:edge` uses installed Microsoft Edge; `npm run test:chrome` uses official stable Chrome for Testing (downloaded and cached by Selenium if necessary). Both run headlessly with local fixtures. `npm run test:chromium` remains an alias for the Edge test. The manual launcher reuses an existing test window when available.
 
-Verified for v0.8.0 on Firefox, Chrome for Testing 156.0.8078.47 and Edge 155.0.4283.62: modular popup, speed and volume controls, PiP, site profiles, independent tab volumes, shadow player replacement, CORS recovery and native playback fallback. Firefox integration also checked mono activation and the in-video PiP flow. Tests use controlled local pages; public sites and DRM players may impose limits. The popup is tested as an extension page; browser-toolbar placement still needs visual confirmation.
+Verified for v0.8.1 on Firefox, Chrome for Testing 156.0.8078.47 and Edge 155.0.4283.62: modular popup, speed and volume controls, PiP, site profiles, independent tab volumes, shadow player replacement, CORS recovery and native playback fallback. Firefox integration also checked mono activation and the in-video PiP flow. Tests use controlled local pages; public sites and DRM players may impose limits. The popup is tested as an extension page; browser-toolbar placement still needs visual confirmation.
 
 The temporary Firefox installation is removed when Firefox restarts. Rebuild and reload after source changes.
 

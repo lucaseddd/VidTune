@@ -5,11 +5,14 @@ import { formatSpeed, normalizeSpeed } from './speed.js';
 import { formatVolume, positionToVolume, volumeToPosition } from './volume.js';
 
 const labels = {
-  speed: 'Video speed', volume: 'Volume boost', mono: 'Mono audio', pip: 'Picture in Picture',
-  presets: 'Speed presets', customSpeed: 'Custom speed', resetSpeed: 'Reset speed',
-  seekBackward: 'Skip backward', seekForward: 'Skip forward', tabVolume: 'Only this tab'
+  speed: 'Playback Speed', volume: 'Volume Boost', mono: 'Mono Audio', pip: 'Picture-in-Picture',
+  presets: 'Speed Presets', customSpeed: 'Custom Speed', resetSpeed: 'Reset Speed',
+  seekBackward: 'Skip Back', seekForward: 'Skip Ahead', tabVolume: 'Tab Volume'
 };
 const list = document.querySelector('#module-list');
+const countPicker = document.querySelector('#tool-count');
+const customizeButton = document.querySelector('#customize-tools');
+const choices = document.querySelector('#tool-choices');
 const status = document.querySelector('#status');
 const smartToggle = document.querySelector('#smart-organize');
 let settings;
@@ -27,11 +30,21 @@ function setStatus(message, kind = '') {
 
 function renderModules() {
   const count = settings.moduleCount;
-  document.querySelector(`[name="module-count"][value="${count}"]`).checked = true;
+  countPicker.value = String(count);
   smartToggle.checked = settings.smartOrganize;
-  list.classList.toggle('smart', settings.smartOrganize);
+  list.className = settings.smartOrganize ? `module-list smart smart-${({ 2: 'two', 5: 'five', 10: 'ten' })[count]}` : 'module-list';
+  customizeButton.hidden = !settings.smartOrganize;
+  if (!settings.smartOrganize) {
+    choices.hidden = true;
+    customizeButton.setAttribute('aria-expanded', 'false');
+  }
+  list.hidden = settings.smartOrganize && !choices.hidden;
   const selected = settings.moduleLayouts[count].map((name, index) => ({ name, index }));
-  if (settings.smartOrganize) selected.sort((a, b) => MODULES.indexOf(a.name) - MODULES.indexOf(b.name));
+  if (settings.smartOrganize) {
+    const preferred = ['speed', 'mono', 'pip', 'volume', 'tabVolume', 'presets', 'customSpeed',
+      'resetSpeed', 'seekBackward', 'seekForward'];
+    selected.sort((a, b) => preferred.indexOf(a.name) - preferred.indexOf(b.name));
+  }
   list.replaceChildren(...selected.map(({ name, index }) => {
     const row = document.createElement('div');
     row.className = 'module-row';
@@ -42,14 +55,29 @@ function renderModules() {
     number.textContent = String(index + 1);
     const select = document.createElement('select');
     select.className = 'module-select';
-    select.setAttribute('aria-label', `Module ${index + 1} function`);
+    select.setAttribute('aria-label', `Tool ${index + 1} function`);
     select.append(...MODULES.map((id) => new Option(labels[id], id)));
     select.value = name;
+    const title = document.createElement('strong');
+    title.className = 'module-title';
+    title.textContent = labels[name];
     const body = document.createElement('div');
     body.className = 'module-control';
     body.append(document.querySelector(`#module-${name}`).content.cloneNode(true));
-    row.append(number, select, body);
+    row.append(number, select, title, body);
     return row;
+  }));
+  choices.replaceChildren(...settings.moduleLayouts[count].map((name, index) => {
+    const label = document.createElement('label');
+    label.textContent = `Tool ${index + 1}`;
+    const select = document.createElement('select');
+    select.className = 'choice-select';
+    select.dataset.index = String(index);
+    select.setAttribute('aria-label', `Tool ${index + 1} function`);
+    select.append(...MODULES.map((id) => new Option(labels[id], id)));
+    select.value = name;
+    label.append(select);
+    return label;
   }));
   const preset = document.querySelector('#preset-choice');
   if (preset) {
@@ -111,18 +139,26 @@ function saveLayout(patch) {
   layoutWrites = layoutWrites.catch(() => {}).then(async () => {
     settings = await updateSettings(patch);
     renderModules();
-  }).catch(() => setStatus('Could not save modules', 'error'));
+  }).catch(() => setStatus('Could not save tools', 'error'));
 }
+
+function changeTool(target) {
+  const index = Number(target.dataset.index ?? target.closest('.module-row').dataset.index);
+  const layout = [...settings.moduleLayouts[settings.moduleCount]];
+  const other = layout.indexOf(target.value);
+  if (other >= 0) layout[other] = layout[index];
+  layout[index] = target.value;
+  saveLayout({ moduleLayouts: { ...settings.moduleLayouts, [settings.moduleCount]: layout } });
+}
+
+choices.addEventListener('change', (event) => {
+  if (event.target.matches('.choice-select')) changeTool(event.target);
+});
 
 list.addEventListener('change', async (event) => {
   const target = event.target;
   if (target.matches('.module-select')) {
-    const index = Number(target.closest('.module-row').dataset.index);
-    const layout = [...settings.moduleLayouts[settings.moduleCount]];
-    const other = layout.indexOf(target.value);
-    if (other >= 0) layout[other] = layout[index];
-    layout[index] = target.value;
-    saveLayout({ moduleLayouts: { ...settings.moduleLayouts, [settings.moduleCount]: layout } });
+    changeTool(target);
   } else if (target.id === 'volume-slider') {
     clearTimeout(volumeTimer);
     volumeTimer = null;
@@ -171,10 +207,13 @@ list.addEventListener('click', (event) => {
   } else send({ type: action });
 });
 
-document.querySelector('.model-picker').addEventListener('change', (event) => {
-  if (event.target.name === 'module-count') saveLayout({ moduleCount: Number(event.target.value) });
-});
+countPicker.addEventListener('change', () => saveLayout({ moduleCount: Number(countPicker.value) }));
 smartToggle.addEventListener('change', () => saveLayout({ smartOrganize: smartToggle.checked }));
+customizeButton.addEventListener('click', () => {
+  choices.hidden = !choices.hidden;
+  list.hidden = !choices.hidden;
+  customizeButton.setAttribute('aria-expanded', String(!choices.hidden));
+});
 document.querySelector('#open-settings').addEventListener('click', () => browserApi().runtime.openOptionsPage());
 
 document.addEventListener('keydown', (event) => {
