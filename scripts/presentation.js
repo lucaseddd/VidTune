@@ -99,19 +99,19 @@ try {
       const [slide,shot,icon,index,done]=arguments;
       Promise.all([shot,icon].map(src=>new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=reject;i.src=src;}))).then(([ui,logo])=>{
         const c=document.createElement('canvas');c.width=1280;c.height=800;const g=c.getContext('2d');
-        g.fillStyle='#10141d';g.fillRect(0,0,1280,800);
-        const glow=g.createRadialGradient(1030,330,20,1030,330,700);glow.addColorStop(0,'#223f3d');glow.addColorStop(1,'#10141d');g.fillStyle=glow;g.fillRect(0,0,1280,800);
+        g.fillStyle='#0C1220';g.fillRect(0,0,1280,800);
+        const glow=g.createRadialGradient(1030,330,20,1030,330,700);glow.addColorStop(0,'#192D58');glow.addColorStop(1,'#0C1220');g.fillStyle=glow;g.fillRect(0,0,1280,800);
         g.strokeStyle='#ffffff06';g.lineWidth=1;for(let x=0;x<1280;x+=40){g.beginPath();g.moveTo(x,0);g.lineTo(x,800);g.stroke();}
-        g.drawImage(logo,64,52,48,48);g.fillStyle='#f1f7f6';g.font='700 26px Segoe UI';g.fillText('VidTune',124,86);
-        g.fillStyle='#79e6bb';g.font='700 14px Segoe UI';g.fillText(slide.label,68,216);
-        g.font='700 70px Segoe UI';slide.title.forEach((line,i)=>{g.fillStyle=i===1?'#79e6bb':'#f1f7f6';g.fillText(line,62,310+i*82);});
-        g.font='22px Segoe UI';g.fillStyle='#b7c4d0';slide.body.forEach((line,i)=>g.fillText(line,68,467+i*35));
+        g.drawImage(logo,64,52,48,48);g.fillStyle='#F2F6FF';g.font='700 26px Segoe UI';g.fillText('VidTune',124,86);
+        g.fillStyle='#85B6FF';g.font='700 14px Segoe UI';g.fillText(slide.label,68,216);
+        g.font='700 70px Segoe UI';slide.title.forEach((line,i)=>{g.fillStyle=i===1?'#85B6FF':'#F2F6FF';g.fillText(line,62,310+i*82);});
+        g.font='22px Segoe UI';g.fillStyle='#B5C5DE';slide.body.forEach((line,i)=>g.fillText(line,68,467+i*35));
         const w=414,h=ui.height*w/ui.width,x=784,y=(800-h)/2;
-        g.shadowColor='#00000070';g.shadowBlur=36;g.shadowOffsetY=14;g.fillStyle='#10141d';g.beginPath();g.roundRect(x-1,y-1,w+2,h+2,18);g.fill();g.shadowBlur=0;g.shadowOffsetY=0;
+        g.shadowColor='#00000070';g.shadowBlur=36;g.shadowOffsetY=14;g.fillStyle='#0C1220';g.beginPath();g.roundRect(x-1,y-1,w+2,h+2,18);g.fill();g.shadowBlur=0;g.shadowOffsetY=0;
         g.save();g.beginPath();g.roundRect(x,y,w,h,17);g.clip();g.drawImage(ui,x,y,w,h);g.restore();
-        g.strokeStyle='#526a68';g.lineWidth=1;g.beginPath();g.roundRect(x,y,w,h,17);g.stroke();
-        g.fillStyle='#79908e';g.font='13px Segoe UI';g.fillText(slide.note||'Actual VidTune interface · Smart Organize',68,728);
-        g.fillStyle='#79e6bb';g.fillRect(68,754,60,3);g.fillStyle='#72828e';g.font='13px Segoe UI';g.fillText('0'+(index+1)+' / 03',1140,754);
+        g.strokeStyle='#385785';g.lineWidth=1;g.beginPath();g.roundRect(x,y,w,h,17);g.stroke();
+        g.fillStyle='#8298BD';g.font='13px Segoe UI';g.fillText(slide.note||'Actual VidTune interface · Smart Organize',68,728);
+        g.fillStyle='#85B6FF';g.fillRect(68,754,60,3);g.fillStyle='#7D91B0';g.font='13px Segoe UI';g.fillText('0'+(index+1)+' / 03',1140,754);
         done(c.toDataURL().split(',')[1]);
       }).catch(e=>done({error:String(e)}));`, slides[index], `data:image/png;base64,${captures[slides[index].key]}`,
     `data:image/png;base64,${(await readFile('icons/icon-256.png')).toString('base64')}`, index);
