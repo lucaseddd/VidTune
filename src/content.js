@@ -37,7 +37,7 @@
       respond({ count: videos.length, playing: playing.length > 0, area });
       return;
     }
-    if (!['GET_STATE', 'SET_SPEED', 'INCREASE', 'DECREASE', 'RESET', 'SET_VOLUME', 'PREVIEW_VOLUME', 'SYNC_VOLUME_SCOPE', 'SEEK_BACKWARD', 'SEEK_FORWARD'].includes(message?.type)) return;
+    if (!['GET_STATE', 'SET_SPEED', 'INCREASE', 'DECREASE', 'RESET', 'SET_VOLUME', 'PREVIEW_VOLUME', 'SYNC_VOLUME_SCOPE', 'SEEK_BACKWARD', 'SEEK_FORWARD', 'TOGGLE_PIP', 'SET_MONO'].includes(message?.type)) return;
     initialize();
     return handleMessage(message, sender, respond);
   });
@@ -49,12 +49,15 @@
     const api = globalThis.browser ?? globalThis.chrome;
     const MIN = 0.1;
     const MAX = 16;
-    const siteHost = globalThis.location?.hostname ?? '';
+    let siteHost = globalThis.location?.hostname ?? '';
     let desiredSpeed = 1;
     let desiredVolume = 1;
+    let desiredMono = false;
+    let monoError = false;
     let volumeManaged = false;
     let scopedVolume = false;
     let activeBoostVideo = null;
+    let activeMonoVideo = null;
     let boostError = null;
     const audioRoutes = new WeakMap();
     const pendingRoutes = new WeakMap();
@@ -63,6 +66,9 @@
     const shadowRoots = new Set();
     const mediaEvents = ['play', 'loadedmetadata', 'loadstart', 'ratechange'];
     let hasSiteProfile = false;
+    let disabled = false;
+    let pipError = null;
+    let pipPrompt = null;
     let speedStep = 0.1;
     let seekSeconds = 10;
     let lastActiveVideo = null;
@@ -170,11 +176,13 @@
           compressor.ratio.value = 20;
           compressor.attack.value = 0.003;
           compressor.release.value = 0.25;
+          const output = context.createGain();
           gain.connect(compressor);
-          compressor.connect(context.destination);
+          compressor.connect(output);
+          output.connect(context.destination);
           const source = context.createMediaElementSource(video);
           source.connect(gain);
-          const route = { context, gain, compressor, mode: 'boost' };
+          const route = { context, gain, compressor, output, mode: 'boost', mono: false };
           audioRoutes.set(video, route);
           return route;
         } catch {
@@ -269,7 +277,7 @@
         route.gain.gain.value = 1;
         if (route.mode !== 'native') {
           route.gain.disconnect();
-          route.gain.connect(route.context.destination);
+          route.gain.connect(route.output);
           route.mode = 'native';
         }
       }
@@ -286,6 +294,26 @@
       // The upper slider reaches 4x at 150%, 8x at 200%, and 32x at 300%.
       const gain = volume <= 1.5 ? 16 ** (volume - 1) : 2 ** (2 * volume - 1);
       route.gain.gain.setTargetAtTime(gain, route.context.currentTime, 0.03);
+    }
+
+    function routeMono(route, enabled) {
+      if (route.mono === enabled) return;
+      if (enabled && !route.monoMixer) {
+        const splitter = route.context.createChannelSplitter(2);
+        const merger = route.context.createChannelMerger(2);
+        for (let channel = 0; channel < 2; channel++) {
+          const half = route.context.createGain();
+          half.gain.value = 0.5;
+          splitter.connect(half, channel);
+          half.connect(merger, 0, 0);
+          half.connect(merger, 0, 1);
+        }
+        merger.connect(route.context.destination);
+        route.monoMixer = splitter;
+      }
+      route.output.disconnect();
+      route.output.connect(enabled ? route.monoMixer : route.context.destination);
+      route.mono = enabled;
     }
 
     function indicatorControlsVisible() {
@@ -384,17 +412,24 @@
     }
 
     async function applyToMain() {
+      if (disabled) return;
       const video = mainVideo();
       if (activeBoostVideo && activeBoostVideo !== video) {
         routeNative(activeBoostVideo, 1);
         activeBoostVideo = null;
       }
+      if (activeMonoVideo && activeMonoVideo !== video) {
+        const previousRoute = audioRoutes.get(activeMonoVideo);
+        if (previousRoute) routeMono(previousRoute, false);
+        activeMonoVideo = null;
+      }
       bindIndicator(video);
       apply(video);
-      if (video && desiredVolume > 1) {
+      if (video && (desiredVolume > 1 || desiredMono)) {
         if (video.paused && !audioRoutes.has(video)) {
-          routeNative(video, 1);
+          routeNative(video, desiredVolume > 1 ? 1 : desiredVolume);
           boostError = null;
+          monoError = false;
           updateIndicator();
           return;
         }
@@ -402,19 +437,33 @@
         const route = await audioRoute(video);
         if (requestedVolume !== desiredVolume || video !== mainVideo()) return applyToMain();
         if (route) {
-          routeBoost(video, route, desiredVolume);
-          activeBoostVideo = video;
+          routeMono(route, desiredMono);
+          activeMonoVideo = desiredMono ? video : null;
+          if (desiredVolume > 1) {
+            routeBoost(video, route, desiredVolume);
+            activeBoostVideo = video;
+          } else {
+            routeNative(video, desiredVolume);
+            activeBoostVideo = null;
+          }
           boostError = null;
+          monoError = false;
         } else {
           routeNative(video, 1);
-          boostError = 'Boost unavailable for this video';
+          boostError = desiredVolume > 1 ? 'Boost unavailable for this video' : null;
+          monoError = desiredMono;
         }
       } else if (video && (volumeManaged || audioRoutes.has(video))) {
         routeNative(video, desiredVolume);
+        const route = audioRoutes.get(video);
+        if (route) routeMono(route, false);
+        activeMonoVideo = null;
         if (activeBoostVideo === video) activeBoostVideo = null;
         boostError = null;
+        monoError = false;
       } else if (!video) {
         boostError = null;
+        monoError = false;
       }
       updateIndicator();
     }
@@ -447,12 +496,12 @@
     }
 
     function updateMonitoring() {
-      if ((desiredSpeed !== 1 || desiredVolume !== 1 || hasSiteProfile) && !observer) {
+      if (!disabled && (desiredSpeed !== 1 || desiredVolume !== 1 || desiredMono || hasSiteProfile) && !observer) {
         for (const name of mediaEvents) document.addEventListener(name, onMediaEvent, true);
         observer = new MutationObserver(onMutations);
         observer.observe(document.documentElement, { childList: true, subtree: true });
         videos();
-      } else if (desiredSpeed === 1 && desiredVolume === 1 && !hasSiteProfile && observer) {
+      } else if ((disabled || desiredSpeed === 1 && desiredVolume === 1 && !desiredMono && !hasSiteProfile) && observer) {
         observer.disconnect();
         observer = null;
         lastActiveVideo = null;
@@ -466,19 +515,75 @@
 
     function state() {
       const video = mainVideo();
-      bindIndicator(video);
+      if (disabled) detachIndicator();
+      else bindIndicator(video);
       return {
         count: videos().length,
         speed: video ? normalize(video.playbackRate) : desiredSpeed,
         volume: video ? normalizeVolume(video.muted ? 0 : activeBoostVideo === video || (desiredVolume > 1 && video.paused && !boostError) ? desiredVolume : video.volume) : desiredVolume,
         boostUnavailable: Boolean(video && desiredVolume > 1 && boostError),
+        mono: desiredMono,
+        monoUnavailable: Boolean(video && desiredMono && monoError),
         boostPending: Boolean(video && desiredVolume > 1 && video.paused && !audioRoutes.has(video)),
         hasVideo: Boolean(video),
-        playing: Boolean(video && !video.paused && !video.ended)
+        playing: Boolean(video && !video.paused && !video.ended),
+        disabled,
+        pipAvailable: Boolean(!disabled && video?.requestPictureInPicture && document.pictureInPictureEnabled &&
+          !video.disablePictureInPicture && video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0),
+        pipActive: Boolean(video && document.pictureInPictureElement === video),
+        pipPrompt: Boolean(pipPrompt),
+        pipError
       };
     }
 
+    function showPipPrompt(video) {
+      pipPrompt?.remove();
+      const rect = video.getBoundingClientRect();
+      if (rect.width < 80 || rect.height < 50) return false;
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = 'PiP';
+      button.setAttribute('aria-label', 'Open Picture in Picture for this video');
+      button.title = 'Click to open Picture in Picture';
+      Object.assign(button.style, {
+        position: 'fixed', zIndex: '2147483647',
+        left: `${Math.max(0, Math.min(rect.right - 52, innerWidth - 52))}px`,
+        top: `${Math.max(0, rect.top + 12)}px`,
+        width: '40px', height: '30px', border: '1px solid #79e6bb', borderRadius: '6px',
+        background: '#19212d', color: '#edf1f8', font: '600 12px system-ui', cursor: 'pointer'
+      });
+      button.addEventListener('click', () => {
+        button.remove();
+        pipPrompt = null;
+        video.requestPictureInPicture().catch((error) => { pipError = error?.message || 'Picture in Picture could not open'; });
+      }, { once: true });
+      document.body.append(button);
+      pipPrompt = button;
+      setTimeout(() => { if (pipPrompt === button) { button.remove(); pipPrompt = null; } }, 20000);
+      return true;
+    }
+
+    async function togglePip() {
+      pipError = null;
+      pipPrompt?.remove();
+      pipPrompt = null;
+      const video = mainVideo();
+      try {
+        if (!video || !document.pictureInPictureEnabled || !video.requestPictureInPicture || video.disablePictureInPicture) {
+          throw new Error('Picture in Picture is unavailable for this video');
+        }
+        if (document.pictureInPictureElement === video) await document.exitPictureInPicture();
+        else await video.requestPictureInPicture();
+      } catch (error) {
+        if (error?.name === 'NotAllowedError' && video && showPipPrompt(video)) {
+          pipError = null;
+        } else pipError = error?.message || 'Picture in Picture could not open';
+      }
+      return state();
+    }
+
     async function setSpeed(value) {
+      if (disabled) return state();
       desiredSpeed = normalize(value);
       const video = mainVideo();
       if (video) rateCorrections.delete(video);
@@ -495,6 +600,7 @@
     }
 
     async function setVolume(value, persist) {
+      if (disabled) return state();
       desiredVolume = normalizeVolume(value);
       volumeManaged = true;
       updateMonitoring();
@@ -505,9 +611,22 @@
         if (scopedVolume) await api.runtime.sendMessage({ type: 'SAVE_SCOPED_VOLUME', volume: desiredVolume });
         else {
           const { settings } = await api.storage.local.get('settings');
-          await api.storage.local.set({ settings: { ...settings, volume: desiredVolume } });
+          const siteVolumes = settings?.siteVolumes ?? {};
+          const updated = Object.hasOwn(siteVolumes, siteHost)
+            ? { ...settings, siteVolumes: { ...siteVolumes, [siteHost]: desiredVolume } }
+            : { ...settings, volume: desiredVolume };
+          await api.storage.local.set({ settings: updated });
         }
       }
+      return state();
+    }
+
+    async function setMono(enabled) {
+      desiredMono = Boolean(enabled);
+      updateMonitoring();
+      await applyToMain();
+      const { settings } = await api.storage.local.get('settings');
+      await api.storage.local.set({ settings: { ...settings, mono: desiredMono } });
       return state();
     }
 
@@ -530,36 +649,75 @@
     const ready = Promise.all([api.storage.local.get('settings'),
       api.runtime.sendMessage({ type: 'GET_VOLUME_SCOPE' }).catch(() => null)])
       .then(async ([{ settings }, scope]) => {
-      hasSiteProfile = Object.hasOwn(settings?.siteSpeeds ?? {}, siteHost);
+      siteHost = scope?.siteHost || siteHost;
+      disabled = settings?.disabledSites?.includes(siteHost) === true;
+      hasSiteProfile = Object.hasOwn(settings?.siteSpeeds ?? {}, siteHost) ||
+        Object.hasOwn(settings?.siteVolumes ?? {}, siteHost);
       desiredSpeed = normalize(settings?.siteSpeeds?.[siteHost] ?? settings?.speed);
       scopedVolume = Boolean(scope?.active);
-      desiredVolume = normalizeVolume(scopedVolume ? scope.volume : settings?.volume);
+      desiredVolume = normalizeVolume(scopedVolume ? scope.volume : settings?.siteVolumes?.[siteHost] ?? settings?.volume);
+      desiredMono = settings?.mono === true;
       volumeManaged = desiredVolume !== 1;
       speedStep = Number(settings?.speedStep) || 0.1;
       seekSeconds = Number(settings?.seekSeconds) || 10;
       updateMonitoring();
-      if (desiredSpeed !== 1 || desiredVolume !== 1 || hasSiteProfile) await applyToMain();
+      if (!disabled && (desiredSpeed !== 1 || desiredVolume !== 1 || desiredMono || hasSiteProfile)) await applyToMain();
     });
 
     api.storage.onChanged?.addListener((changes, area) => {
       if (area !== 'local' || !changes.settings) return;
       const settings = changes.settings.newValue;
+      const wasDisabled = disabled;
+      disabled = settings?.disabledSites?.includes(siteHost) === true;
+      if (disabled && !wasDisabled) {
+        pipPrompt?.remove();
+        pipPrompt = null;
+        const video = mainVideo();
+        if (video) {
+          if (activeBoostVideo === video || audioRoutes.has(video)) {
+            routeNative(video, 1);
+            const route = audioRoutes.get(video);
+            if (route) routeMono(route, false);
+          }
+          else if (volumeManaged) video.volume = 1;
+          if (desiredSpeed !== 1) video.playbackRate = 1;
+        }
+        activeBoostVideo = null;
+        activeMonoVideo = null;
+        boostError = null;
+        monoError = false;
+      }
       speedStep = Number(settings?.speedStep) || 0.1;
       seekSeconds = Number(settings?.seekSeconds) || 10;
-      hasSiteProfile = Object.hasOwn(settings?.siteSpeeds ?? {}, siteHost);
-      const nextVolume = normalizeVolume(settings?.volume);
+      if (desiredMono !== (settings?.mono === true)) {
+        desiredMono = settings?.mono === true;
+        if (!disabled) applyToMain().catch(() => {});
+      }
+      hasSiteProfile = Object.hasOwn(settings?.siteSpeeds ?? {}, siteHost) ||
+        Object.hasOwn(settings?.siteVolumes ?? {}, siteHost);
+      const nextSpeed = normalize(settings?.siteSpeeds?.[siteHost] ?? settings?.speed);
+      const nextVolume = normalizeVolume(scopedVolume ? desiredVolume : settings?.siteVolumes?.[siteHost] ?? settings?.volume);
+      const oldSiteSpeed = changes.settings.oldValue?.siteSpeeds?.[siteHost];
+      const siteSpeedChanged = oldSiteSpeed !== settings?.siteSpeeds?.[siteHost];
+      if (!disabled && (siteSpeedChanged || wasDisabled) && nextSpeed !== desiredSpeed) {
+        desiredSpeed = nextSpeed;
+        applyToMain().catch(() => {});
+      }
       if (!scopedVolume && nextVolume !== desiredVolume) {
         desiredVolume = nextVolume;
         volumeManaged = true;
-        applyToMain().catch(() => {});
+        if (!disabled) applyToMain().catch(() => {});
       }
       updateMonitoring();
+      if (disabled) detachIndicator();
+      else if (wasDisabled) applyToMain().catch(() => {});
     });
 
     let pending = ready;
     handleMessage = (message, _sender, respond) => {
-      if (!['GET_STATE', 'SET_SPEED', 'INCREASE', 'DECREASE', 'RESET', 'SET_VOLUME', 'PREVIEW_VOLUME', 'SYNC_VOLUME_SCOPE', 'SEEK_BACKWARD', 'SEEK_FORWARD'].includes(message?.type)) return;
+      if (!['GET_STATE', 'SET_SPEED', 'INCREASE', 'DECREASE', 'RESET', 'SET_VOLUME', 'PREVIEW_VOLUME', 'SYNC_VOLUME_SCOPE', 'SEEK_BACKWARD', 'SEEK_FORWARD', 'TOGGLE_PIP', 'SET_MONO'].includes(message?.type)) return;
       pending = pending.then(async () => {
+        if (disabled) return state();
         const current = state().speed;
         switch (message.type) {
           case 'SET_SPEED': return setSpeed(message.speed);
@@ -568,12 +726,14 @@
           case 'RESET': return setSpeed(1);
           case 'SET_VOLUME': return setVolume(message.volume, true);
           case 'PREVIEW_VOLUME': return setVolume(message.volume, false);
+          case 'SET_MONO': return setMono(message.enabled);
           case 'SYNC_VOLUME_SCOPE': {
             const scope = await api.runtime.sendMessage({ type: 'GET_VOLUME_SCOPE' });
             scopedVolume = Boolean(scope?.active);
             const { settings } = await api.storage.local.get('settings');
-            return setVolume(scopedVolume ? scope.volume : settings?.volume, false);
+            return setVolume(scopedVolume ? scope.volume : settings?.siteVolumes?.[siteHost] ?? settings?.volume, false);
           }
+          case 'TOGGLE_PIP': return togglePip();
           case 'SEEK_BACKWARD': return seek(-1);
           case 'SEEK_FORWARD': return seek(1);
           default: return state();

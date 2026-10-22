@@ -25,6 +25,7 @@
           <label>Slower <select id="key-decrease"></select></label>
           <label>Faster <select id="key-increase"></select></label>
           <label>Reset to 1× <select id="key-reset"></select></label>
+          <label>Picture in Picture <select id="key-pip"></select></label>
         </div>
       </section>
       <section aria-labelledby="seek-title">
@@ -41,6 +42,14 @@
         <p class="hint" id="site-name">Checking the active tab…</p>
         <label class="switch site-toggle"><input id="site-enabled" type="checkbox"> Remember a speed for this site</label>
         <label class="field">Site speed <input id="site-speed" type="number" min="0.1" max="16" step="0.01"><span>×</span></label>
+        <label class="switch site-toggle"><input id="site-volume-enabled" type="checkbox"> Remember a volume for this site</label>
+        <label class="field">Site volume <input id="site-volume" type="number" min="0" max="300" step="1"><span>%</span></label>
+        <label class="switch site-toggle"><input id="site-disabled" type="checkbox"> Disable VidTune on this site</label>
+      </section>
+      <section aria-labelledby="profiles-title">
+        <h2 id="profiles-title">Saved sites</h2>
+        <p class="hint">Edit a site's saved speed or volume, disable it, or remove its profile. Save settings to apply changes.</p>
+        <div id="profiles-list" class="profiles-list"></div>
       </section>
       <div class="actions"><p id="feedback" role="status" aria-live="polite"></p><button type="submit">Save settings</button></div>
     </form>

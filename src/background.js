@@ -1,7 +1,7 @@
 import { sendToFrame } from './browser.js';
 
 const api = globalThis.browser ?? globalThis.chrome;
-const actions = new Set(['INCREASE', 'DECREASE', 'RESET', 'SEEK_BACKWARD', 'SEEK_FORWARD']);
+const actions = new Set(['INCREASE', 'DECREASE', 'RESET', 'SEEK_BACKWARD', 'SEEK_FORWARD', 'TOGGLE_PIP']);
 
 let scopeWrites = Promise.resolve();
 
@@ -31,7 +31,9 @@ api.runtime.onMessage.addListener((message, sender, respond) => {
   if (message?.type === 'GET_VOLUME_SCOPE') {
     volumeScopes().then((scopes) => {
       const tabId = message.tabId ?? sender.tab?.id;
-      respond({ active: Object.hasOwn(scopes, tabId), volume: scopes[tabId] ?? 1 });
+      let siteHost = null;
+      try { siteHost = new URL(sender.tab?.url).hostname.toLowerCase(); } catch { /* No web tab. */ }
+      respond({ active: Object.hasOwn(scopes, tabId), volume: scopes[tabId] ?? 1, siteHost });
     }, (error) => respond({ error: String(error) }));
     return true;
   }
@@ -56,6 +58,21 @@ api.runtime.onMessage.addListener((message, sender, respond) => {
   }
   if (!sender.tab?.id) return;
   if (message?.type !== 'INIT_PREFERENCES' && (message?.type !== 'VIDEO_SHORTCUT' || !actions.has(message.action))) return;
+  let pageHost = null;
+  try { pageHost = new URL(sender.tab.url).hostname.toLowerCase(); } catch { /* No web tab. */ }
+  if (pageHost) {
+    const task = api.storage.local.get('settings').then(({ settings }) =>
+      settings?.disabledSites?.includes(pageHost) === true);
+    task.then((blocked) => {
+      if (blocked) respond({ disabled: true });
+      else {
+        const type = message.type === 'INIT_PREFERENCES' ? 'GET_STATE' : message.action;
+        sendToFrame(sender.tab.id, sender.frameId ?? 0, { type }).then(respond, (error) =>
+          respond({ error: String(error) }));
+      }
+    }, (error) => respond({ error: String(error) }));
+    return true;
+  }
   const type = message.type === 'INIT_PREFERENCES' ? 'GET_STATE' : message.action;
   sendToFrame(sender.tab.id, sender.frameId ?? 0, { type }).then(respond, (error) => {
     console.warn('VidTune could not control this page:', error);

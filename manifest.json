@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "VidTune — Speed & Volume",
+  "name": "VidTune — Modular Controls",
   "short_name": "VidTune",
-  "version": "0.5.8",
-  "description": "Lightweight video speed and precise volume controls up to 300%.",
+  "version": "0.8.0",
+  "description": "Customizable video controls for speed, volume, mono audio, and Picture in Picture.",
   "action": {
     "default_title": "VidTune",
     "default_popup": "popup.html"

@@ -9,43 +9,34 @@
 </head>
 <body>
   <main class="shell">
-    <header class="brand"><span class="brand-mark" aria-hidden="true">▶</span><div><strong>VidTune</strong><small>Video, your way</small></div><button id="open-settings" class="settings-link" type="button" aria-label="Open settings" title="Settings">⚙</button><span class="version">v0.5.8</span></header>
-    <section class="card speed-card" aria-labelledby="speed-heading">
-      <div class="card-heading"><h1 id="speed-heading">Speed</h1><span id="speed-note" class="status">Ready</span></div>
-      <div class="speed-control">
-        <button id="decrease" type="button" class="step-button" aria-label="Decrease speed">−</button>
-        <output id="speed-value" aria-live="polite">1×</output>
-        <button id="increase" type="button" class="step-button" aria-label="Increase speed">+</button>
-      </div>
-      <div id="presets" class="presets" aria-label="Speed presets">
-        <button type="button" data-speed="0.5">0.5×</button>
-        <button type="button" data-speed="1">1×</button>
-        <button type="button" data-speed="1.5">1.5×</button>
-        <button type="button" data-speed="2">2×</button>
-        <button type="button" data-speed="3">3×</button>
-        <button type="button" data-speed="4">4×</button>
-      </div>
-      <form id="manual-speed" class="manual-row" novalidate>
-        <label for="manual-value">Custom</label>
-        <input id="manual-value" type="number" min="0.1" max="16" step="0.1" inputmode="decimal" aria-describedby="speed-range" required>
-        <button type="submit" class="secondary">Apply</button>
-      </form>
-      <div class="speed-footer"><span id="speed-range">0.1×–16×</span><button id="reset" type="button" class="text-button">Reset to 1×</button></div>
-    </section>
-    <section class="card volume-card" aria-labelledby="volume-heading">
-      <div class="card-heading"><h2 id="volume-heading">Volume</h2><output id="volume-value" for="volume-slider">100%</output></div>
-      <input id="volume-slider" type="range" min="0" max="200" step="1" value="100" aria-label="Video volume" aria-valuetext="100%" title="Above 100%: progressive boost. 200% applies up to 8× gain; 300% applies up to 32×.">
-      <div class="volume-scale" aria-hidden="true"><span>0%</span><span>100%</span><span>300%</span></div>
-      <label class="toggle-row" for="tab-volume-only"><span><strong>Only this tab</strong><small>Set a different volume for each tab</small></span><input id="tab-volume-only" type="checkbox"></label>
-    </section>
-    <section class="card" aria-labelledby="video-heading">
-      <div class="card-heading"><h2 id="video-heading">Current page</h2><span id="status" class="status">Checking…</span></div>
-      <p id="site" class="site">—</p>
-      <p id="video-summary" class="summary" role="status" aria-live="polite">Looking for videos…</p>
-      <button id="refresh" type="button" class="secondary">Scan again</button>
-    </section>
-    <p class="footnote">Video shortcuts: A slower · D faster · Q reset</p>
+    <header class="brand">
+      <span class="brand-mark" aria-hidden="true">▶</span>
+      <div><strong>VidTune</strong><small id="status" role="status" aria-live="polite">Checking…</small></div>
+      <button id="open-settings" class="icon-button" type="button" aria-label="Open settings" title="Settings">⚙</button>
+      <span class="version">Modular</span>
+    </header>
+    <fieldset class="model-picker">
+      <legend>Modules</legend>
+      <label><input type="radio" name="module-count" value="2"> 2</label>
+      <label><input type="radio" name="module-count" value="5"> 5</label>
+      <label><input type="radio" name="module-count" value="10"> 10</label>
+    </fieldset>
+    <div id="module-list" class="module-list" aria-label="Choose functions for each module"></div>
+    <label class="smart-toggle"><input id="smart-organize" type="checkbox"><span><strong>Smart Organize</strong><small>Arrange selected tools automatically</small></span></label>
+    <p class="footnote">A slower · D faster · Q reset</p>
+    <span id="site" class="visually-hidden">—</span>
+    <span id="video-summary" class="visually-hidden" role="status">Looking for videos…</span>
   </main>
+  <template id="module-speed"><button id="decrease" type="button" data-action="DECREASE" aria-label="Decrease speed">−</button><output id="speed-value">1×</output><button id="increase" type="button" data-action="INCREASE" aria-label="Increase speed">+</button></template>
+  <template id="module-volume"><input id="volume-slider" type="range" min="0" max="200" step="1" value="100" aria-label="Video volume"><output id="volume-value">100%</output></template>
+  <template id="module-mono"><label class="toggle"><input id="mono-toggle" type="checkbox"> Mix L + R</label></template>
+  <template id="module-pip"><button id="toggle-pip" type="button" data-action="TOGGLE_PIP" aria-label="Open Picture in Picture" title="Picture in Picture">▣</button></template>
+  <template id="module-presets"><select id="preset-choice" aria-label="Choose speed preset"></select></template>
+  <template id="module-customSpeed"><input id="manual-value" type="number" min="0.1" max="16" step="0.1" inputmode="decimal" aria-label="Custom speed"><button type="button" data-action="CUSTOM_SPEED">Apply</button></template>
+  <template id="module-resetSpeed"><button id="reset" type="button" data-action="RESET" class="wide-control">Reset to 1×</button></template>
+  <template id="module-seekBackward"><button type="button" data-action="SEEK_BACKWARD" class="wide-control">↶ Skip back</button></template>
+  <template id="module-seekForward"><button type="button" data-action="SEEK_FORWARD" class="wide-control">Skip forward ↷</button></template>
+  <template id="module-tabVolume"><label class="toggle"><input id="tab-volume-only" type="checkbox"> Separate volume</label></template>
   <script type="module" src="src/popup.js"></script>
 </body>
 </html>

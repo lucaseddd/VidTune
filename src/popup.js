@@ -1,204 +1,205 @@
 import { activeTab, browserApi, sendToVideo } from './browser.js';
 import { summarizeVideos } from './detection.js';
-import { loadSettings } from './settings.js';
+import { loadSettings, MODULES, updateSettings } from './settings.js';
 import { formatSpeed, normalizeSpeed } from './speed.js';
 import { formatVolume, positionToVolume, volumeToPosition } from './volume.js';
 
-const site = document.querySelector('#site');
-const summary = document.querySelector('#video-summary');
+const labels = {
+  speed: 'Video speed', volume: 'Volume boost', mono: 'Mono audio', pip: 'Picture in Picture',
+  presets: 'Speed presets', customSpeed: 'Custom speed', resetSpeed: 'Reset speed',
+  seekBackward: 'Skip backward', seekForward: 'Skip forward', tabVolume: 'Only this tab'
+};
+const list = document.querySelector('#module-list');
 const status = document.querySelector('#status');
-const speedNote = document.querySelector('#speed-note');
-const speedValue = document.querySelector('#speed-value');
-const manualValue = document.querySelector('#manual-value');
-const refresh = document.querySelector('#refresh');
-const volumeSlider = document.querySelector('#volume-slider');
-const volumeValue = document.querySelector('#volume-value');
-const tabVolumeOnly = document.querySelector('#tab-volume-only');
-let currentTab = null;
-let volumeTimer = null;
-let pendingVolume = null;
+const smartToggle = document.querySelector('#smart-organize');
+let settings;
+let currentTab;
+let videoState = { speed: 1, volume: 1, mono: false, hasVideo: false };
+let scopeActive = false;
+let volumeTimer;
 let volumeRequests = Promise.resolve();
-let shortcuts = { decrease: 'KeyA', increase: 'KeyD', reset: 'KeyQ', seekBackward: null, seekForward: null };
-let seekEnabled = false;
+let layoutWrites = Promise.resolve();
 
-function renderPresets(presets) {
-  document.querySelector('#presets').replaceChildren(...presets.map((speed) => {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.dataset.speed = String(speed);
-    button.textContent = formatSpeed(speed);
-    return button;
+function setStatus(message, kind = '') {
+  status.textContent = message;
+  status.className = kind;
+}
+
+function renderModules() {
+  const count = settings.moduleCount;
+  document.querySelector(`[name="module-count"][value="${count}"]`).checked = true;
+  smartToggle.checked = settings.smartOrganize;
+  list.classList.toggle('smart', settings.smartOrganize);
+  const selected = settings.moduleLayouts[count].map((name, index) => ({ name, index }));
+  if (settings.smartOrganize) selected.sort((a, b) => MODULES.indexOf(a.name) - MODULES.indexOf(b.name));
+  list.replaceChildren(...selected.map(({ name, index }) => {
+    const row = document.createElement('div');
+    row.className = 'module-row';
+    row.dataset.module = name;
+    row.dataset.index = String(index);
+    const number = document.createElement('span');
+    number.className = 'module-number';
+    number.textContent = String(index + 1);
+    const select = document.createElement('select');
+    select.className = 'module-select';
+    select.setAttribute('aria-label', `Module ${index + 1} function`);
+    select.append(...MODULES.map((id) => new Option(labels[id], id)));
+    select.value = name;
+    const body = document.createElement('div');
+    body.className = 'module-control';
+    body.append(document.querySelector(`#module-${name}`).content.cloneNode(true));
+    row.append(number, select, body);
+    return row;
   }));
+  const preset = document.querySelector('#preset-choice');
+  if (preset) {
+    preset.append(new Option('Choose speed', ''));
+    for (const speed of settings.presets) preset.append(new Option(formatSpeed(speed), String(speed)));
+  }
+  renderVideoState(videoState);
 }
 
-function setStatus(text, kind = '') {
-  status.textContent = text;
-  status.className = `status ${kind}`;
-}
-
-function renderSpeed(speed, hasVideo = false) {
-  const normalized = normalizeSpeed(speed);
-  speedValue.textContent = formatSpeed(normalized);
-  if (document.activeElement !== manualValue) manualValue.value = String(normalized);
-  speedNote.textContent = hasVideo ? 'Current video' : 'Saved preference';
-  for (const button of document.querySelectorAll('[data-speed]')) {
-    button.setAttribute('aria-pressed', String(Number(button.dataset.speed) === normalized));
+function renderVideoState(state) {
+  if (!state || state.error) throw new Error(state?.error || 'Video unavailable');
+  videoState = state;
+  document.querySelector('#video-summary').textContent = summarizeVideos(state.count ?? 0);
+  setStatus(state.disabled ? 'Disabled on this site' : state.pipPrompt ? 'Click PiP on the video' :
+    state.pipError || (state.monoUnavailable ? 'Mono unavailable for this video' :
+    state.boostUnavailable ? 'Boost unavailable for this video' : state.boostPending ? 'Play video for boost' :
+      state.hasVideo ? 'Ready' : 'No video'),
+  state.monoUnavailable || state.boostUnavailable || state.pipError ? 'error' : state.hasVideo && !state.disabled ? 'ready' : '');
+  const speed = normalizeSpeed(state.speed);
+  const speedValue = document.querySelector('#speed-value');
+  if (speedValue) speedValue.textContent = formatSpeed(speed);
+  const manual = document.querySelector('#manual-value');
+  if (manual && document.activeElement !== manual) manual.value = String(speed);
+  const slider = document.querySelector('#volume-slider');
+  if (slider && document.activeElement !== slider) slider.value = String(volumeToPosition(state.volume));
+  const volumeValue = document.querySelector('#volume-value');
+  if (volumeValue) volumeValue.textContent = formatVolume(state.volume);
+  const mono = document.querySelector('#mono-toggle');
+  if (mono) mono.checked = Boolean(state.mono);
+  const pip = document.querySelector('#toggle-pip');
+  if (pip) {
+    pip.disabled = Boolean(state.disabled || !state.pipAvailable);
+    pip.setAttribute('aria-pressed', String(Boolean(state.pipActive)));
+    pip.setAttribute('aria-label', state.pipActive ? 'Close Picture in Picture' : 'Open Picture in Picture');
+  }
+  const tabVolume = document.querySelector('#tab-volume-only');
+  if (tabVolume) tabVolume.checked = scopeActive;
+  for (const element of list.querySelectorAll('button:not(#toggle-pip), input, select:not(.module-select)')) {
+    element.disabled = Boolean(state.disabled);
   }
 }
 
-function renderVolume(volume) {
-  const label = formatVolume(volume);
-  volumeSlider.value = String(volumeToPosition(volume));
-  volumeSlider.setAttribute('aria-valuetext', label);
-  volumeValue.textContent = label;
-}
-
-function volumeFromSlider() {
-  const volume = positionToVolume(volumeSlider.value);
-  const label = formatVolume(volume);
-  volumeSlider.setAttribute('aria-valuetext', label);
-  volumeValue.textContent = label;
-  return volume;
+async function send(message) {
+  if (!currentTab?.id) return;
+  try {
+    const state = await sendToVideo(currentTab.id, message);
+    renderVideoState(state);
+    if (state.pipPrompt) await browserApi().tabs.update(currentTab.id, { active: true });
+    if (!state.hasVideo && !state.disabled) setStatus('Saved for next video');
+  } catch { setStatus('Control unavailable here', 'error'); }
 }
 
 function sendVolume(volume, persist) {
   if (!currentTab?.id) return;
-  volumeRequests = volumeRequests.catch(() => {}).then(async () => {
-    const state = await sendToVideo(currentTab.id, { type: persist ? 'SET_VOLUME' : 'PREVIEW_VOLUME', volume });
-    if (state.error) throw new Error(state.error);
-    if (state.boostUnavailable) setStatus('Boost unavailable for this video', 'error');
-    else if (state.boostPending) setStatus('Play video to enable boost');
-    else if (state.hasVideo) setStatus('Ready', 'ready');
-    if (persist) renderVolume(state.volume);
-  }).catch(() => setStatus('Volume unavailable here', 'error'));
+  volumeRequests = volumeRequests.catch(() => {}).then(() => send({ type: persist ? 'SET_VOLUME' : 'PREVIEW_VOLUME', volume }));
 }
 
-function renderVideoState(state) {
-  if (state?.error) throw new Error(state.error);
-  summary.textContent = summarizeVideos(state.count);
-  summary.removeAttribute('title');
-  setStatus(state.boostUnavailable ? 'Boost unavailable for this video' : state.boostPending ? 'Play video to enable boost' : state.hasVideo ? 'Ready' : 'No video',
-    state.boostUnavailable ? 'error' : state.hasVideo && !state.boostPending ? 'ready' : '');
-  renderSpeed(state.speed, state.hasVideo);
-  if (document.activeElement !== volumeSlider) renderVolume(state.volume);
+function saveLayout(patch) {
+  layoutWrites = layoutWrites.catch(() => {}).then(async () => {
+    settings = await updateSettings(patch);
+    renderModules();
+  }).catch(() => setStatus('Could not save modules', 'error'));
 }
 
-async function scan() {
-  if (!currentTab?.id) return;
-  setStatus('Checking…');
-  try {
-    renderVideoState(await sendToVideo(currentTab.id, { type: 'GET_STATE' }));
-  } catch (error) {
-    summary.textContent = 'This page does not allow video scanning.';
-    summary.title = String(error);
-    setStatus('Unavailable', 'error');
+list.addEventListener('change', async (event) => {
+  const target = event.target;
+  if (target.matches('.module-select')) {
+    const index = Number(target.closest('.module-row').dataset.index);
+    const layout = [...settings.moduleLayouts[settings.moduleCount]];
+    const other = layout.indexOf(target.value);
+    if (other >= 0) layout[other] = layout[index];
+    layout[index] = target.value;
+    saveLayout({ moduleLayouts: { ...settings.moduleLayouts, [settings.moduleCount]: layout } });
+  } else if (target.id === 'volume-slider') {
+    clearTimeout(volumeTimer);
+    volumeTimer = null;
+    sendVolume(positionToVolume(target.value), true);
+  } else if (target.id === 'preset-choice' && target.value) {
+    send({ type: 'SET_SPEED', speed: Number(target.value) });
+  } else if (target.id === 'mono-toggle') {
+    send({ type: 'SET_MONO', enabled: target.checked });
+  } else if (target.id === 'tab-volume-only' && currentTab?.id) {
+    target.disabled = true;
+    try {
+      await volumeRequests;
+      const result = await browserApi().runtime.sendMessage({
+        type: 'SET_VOLUME_SCOPE', tabId: currentTab.id, enabled: target.checked,
+        volume: videoState.volume
+      });
+      if (result.error) throw new Error(result.error);
+      scopeActive = result.active;
+      renderVideoState(await sendToVideo(currentTab.id, { type: 'SYNC_VOLUME_SCOPE' }));
+    } catch { setStatus('Could not change volume scope', 'error'); }
+    finally { target.disabled = false; }
   }
-}
-
-async function control(message) {
-  if (!currentTab?.id) return;
-  for (const button of document.querySelectorAll('.speed-card button')) button.disabled = true;
-  try {
-    const state = await sendToVideo(currentTab.id, message);
-    renderVideoState(state);
-    if (!state.hasVideo) setStatus('Saved for next video');
-  } catch {
-    setStatus('Speed unavailable here', 'error');
-  } finally {
-    for (const button of document.querySelectorAll('.speed-card button')) button.disabled = false;
-  }
-}
-
-async function initialize() {
-  try {
-    const [settings, tab] = await Promise.all([loadSettings(), activeTab()]);
-    shortcuts = settings.shortcuts;
-    seekEnabled = settings.seekEnabled;
-    manualValue.step = String(settings.speedStep);
-    renderPresets(settings.presets);
-    document.querySelector('.footnote').textContent = `Video shortcuts: ${shortcuts.decrease?.slice(3) ?? '—'} slower · ${shortcuts.increase?.slice(3) ?? '—'} faster · ${shortcuts.reset?.slice(3) ?? '—'} reset`;
-    renderSpeed(settings.speed);
-    renderVolume(settings.volume);
-    currentTab = tab;
-    if (!tab) {
-      site.textContent = 'No active tab';
-      summary.textContent = 'Open a page to get started.';
-      setStatus('No tab');
-      refresh.disabled = true;
-      volumeSlider.disabled = true;
-      return;
-    }
-    try { site.textContent = new URL(tab.url).hostname || 'Current page'; }
-    catch { site.textContent = 'Current page'; }
-    const scope = await browserApi().runtime.sendMessage({ type: 'GET_VOLUME_SCOPE', tabId: tab.id });
-    tabVolumeOnly.checked = scope.active;
-    if (scope.active) renderVolume(scope.volume);
-    if (settings.autoDetect) await scan();
-    else { summary.textContent = 'Automatic scanning is off.'; setStatus('Paused'); }
-  } catch {
-    summary.textContent = 'VidTune could not load its preferences.';
-    setStatus('Error', 'error');
-  }
-}
-
-refresh.addEventListener('click', scan);
-tabVolumeOnly.addEventListener('change', async () => {
-  if (!currentTab?.id) return;
-  tabVolumeOnly.disabled = true;
-  try {
-    await volumeRequests;
-    const result = await browserApi().runtime.sendMessage({
-      type: 'SET_VOLUME_SCOPE', tabId: currentTab.id, enabled: tabVolumeOnly.checked,
-      volume: positionToVolume(volumeSlider.value)
-    });
-    if (result.error) throw new Error(result.error);
-    renderVideoState(await sendToVideo(currentTab.id, { type: 'SYNC_VOLUME_SCOPE' }));
-  } catch {
-    tabVolumeOnly.checked = !tabVolumeOnly.checked;
-    setStatus('Could not change volume scope', 'error');
-  } finally { tabVolumeOnly.disabled = false; }
 });
-volumeSlider.addEventListener('input', () => {
-  pendingVolume = volumeFromSlider();
+
+list.addEventListener('input', (event) => {
+  if (event.target.id !== 'volume-slider') return;
+  const volume = positionToVolume(event.target.value);
+  document.querySelector('#volume-value').textContent = formatVolume(volume);
   if (!volumeTimer) volumeTimer = setTimeout(() => {
     volumeTimer = null;
-    sendVolume(pendingVolume, false);
+    sendVolume(volume, false);
   }, 50);
 });
-volumeSlider.addEventListener('change', () => {
-  clearTimeout(volumeTimer);
-  volumeTimer = null;
-  sendVolume(volumeFromSlider(), true);
+
+list.addEventListener('click', (event) => {
+  const action = event.target.closest('[data-action]')?.dataset.action;
+  if (!action) return;
+  if (action === 'CUSTOM_SPEED') {
+    const input = document.querySelector('#manual-value');
+    const speed = Number(input.value);
+    if (!input.value.trim() || !Number.isFinite(speed) || speed < 0.1 || speed > 16) {
+      setStatus('Enter 0.1×–16×', 'error');
+      return;
+    }
+    send({ type: 'SET_SPEED', speed });
+  } else send({ type: action });
 });
+
+document.querySelector('.model-picker').addEventListener('change', (event) => {
+  if (event.target.name === 'module-count') saveLayout({ moduleCount: Number(event.target.value) });
+});
+smartToggle.addEventListener('change', () => saveLayout({ smartOrganize: smartToggle.checked }));
 document.querySelector('#open-settings').addEventListener('click', () => browserApi().runtime.openOptionsPage());
-document.querySelector('#increase').addEventListener('click', () => control({ type: 'INCREASE' }));
-document.querySelector('#decrease').addEventListener('click', () => control({ type: 'DECREASE' }));
-document.querySelector('#reset').addEventListener('click', () => control({ type: 'RESET' }));
-document.querySelector('#presets').addEventListener('click', (event) => {
-  const button = event.target.closest('[data-speed]');
-  if (button) control({ type: 'SET_SPEED', speed: Number(button.dataset.speed) });
-});
-document.querySelector('#manual-speed').addEventListener('submit', (event) => {
-  event.preventDefault();
-  const speed = Number(manualValue.value);
-  if (!manualValue.value.trim() || !Number.isFinite(speed) || speed < 0.1 || speed > 16) {
-    setStatus('Enter a speed from 0.1 to 16', 'error');
-    return;
-  }
-  control({ type: 'SET_SPEED', speed });
-});
+
 document.addEventListener('keydown', (event) => {
   if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
-  if (event.composedPath().some((element) => element?.closest?.('input, textarea, select, [contenteditable], [role="textbox"]'))) return;
-  const name = Object.keys(shortcuts).find((key) => shortcuts[key] === event.code);
-  if (!name || (name.startsWith('seek') && !seekEnabled)) return;
+  if (event.composedPath().some((element) => element?.closest?.('input:not([type="radio"]):not([type="checkbox"]), textarea, select, [contenteditable], [role="textbox"]'))) return;
+  const shortcut = Object.keys(settings?.shortcuts ?? {}).find((key) => settings.shortcuts[key] === event.code);
+  if (!shortcut || (shortcut.startsWith('seek') && !settings.seekEnabled)) return;
   const action = {
     decrease: 'DECREASE', increase: 'INCREASE', reset: 'RESET',
-    seekBackward: 'SEEK_BACKWARD', seekForward: 'SEEK_FORWARD'
-  }[name];
+    seekBackward: 'SEEK_BACKWARD', seekForward: 'SEEK_FORWARD', pip: 'TOGGLE_PIP'
+  }[shortcut];
   if (event.repeat && !['INCREASE', 'DECREASE'].includes(action)) return;
   event.preventDefault();
-  control({ type: action });
+  send({ type: action });
 }, true);
 
-initialize();
+try {
+  [settings, currentTab] = await Promise.all([loadSettings(), activeTab()]);
+  videoState = { ...videoState, speed: settings.speed, volume: settings.volume, mono: settings.mono };
+  renderModules();
+  if (currentTab?.id) {
+    try { document.querySelector('#site').textContent = new URL(currentTab.url).hostname; } catch { /* Restricted tab. */ }
+    const scope = await browserApi().runtime.sendMessage({ type: 'GET_VOLUME_SCOPE', tabId: currentTab.id });
+    scopeActive = Boolean(scope.active);
+    if (settings.autoDetect) renderVideoState(await sendToVideo(currentTab.id, { type: 'GET_STATE' }));
+    else setStatus('Video scan paused');
+  } else setStatus('No tab');
+} catch { setStatus('VidTune could not load', 'error'); }
