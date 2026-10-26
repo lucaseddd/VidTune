@@ -10,11 +10,11 @@ const { version } = JSON.parse(await readFile('package.json', 'utf8'));
 async function zipContents(folder, archive) {
   const source = path.resolve(folder);
   const destination = path.resolve(archive);
+  await rm(destination, { force: true });
   if (process.platform === 'win32') {
     const entries = await readdir(source);
     execFileSync('tar.exe', ['-a', '-c', '-f', destination, '-C', source, ...entries], { stdio: 'inherit' });
   } else {
-    await rm(destination, { force: true });
     execFileSync('zip', ['-qr', destination, '.'], { cwd: source, stdio: 'inherit' });
   }
 }
