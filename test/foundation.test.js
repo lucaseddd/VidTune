@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_SETTINGS, normalizeSettings, updateSettings } from '../src/settings.js';
+import { DEFAULT_SETTINGS, MODULES, normalizeSettings, updateSettings } from '../src/settings.js';
 import { summarizeVideos } from '../src/detection.js';
 import { adjustSpeed, formatSpeed, normalizeSpeed } from '../src/speed.js';
 import { formatVolume, normalizeVolume, positionToVolume, volumeToPosition } from '../src/volume.js';
@@ -34,6 +34,22 @@ test('volume slider gives fine control near zero and remains reversible', () => 
   assert.equal(formatVolume(0.075), '7.5%');
   assert.equal(normalizeVolume(4), 3);
   assert.equal(normalizeVolume(-1), 0);
+});
+
+test('module layouts keep unique functions and reject damaged preferences', () => {
+  assert.equal(DEFAULT_SETTINGS.moduleCount, 5);
+  assert.equal(DEFAULT_SETTINGS.smartOrganize, true);
+  const valid = normalizeSettings({ moduleCount: 5, mono: true,
+    moduleLayouts: { 2: ['mono', 'volume'], 5: ['speed', 'mono', 'pip', 'volume', 'tabVolume'], 10: MODULES },
+    smartOrganize: true });
+  assert.equal(valid.moduleCount, 5);
+  assert.deepEqual(valid.moduleLayouts[2], ['mono', 'volume']);
+  assert.equal(valid.mono, true);
+  assert.equal(valid.smartOrganize, true);
+  const damaged = normalizeSettings({ moduleCount: 3, moduleLayouts: { 2: ['speed', 'speed'], 10: ['speed'] } });
+  assert.equal(damaged.moduleCount, 5);
+  assert.deepEqual(damaged.moduleLayouts[2], DEFAULT_SETTINGS.moduleLayouts[2]);
+  assert.deepEqual(damaged.moduleLayouts[10], MODULES);
 });
 
 test('changing auto detection preserves the saved playback speed', async () => {

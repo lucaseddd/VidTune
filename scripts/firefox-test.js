@@ -49,6 +49,7 @@ try {
   const uuid = await driver.executeScript("return JSON.parse(Services.prefs.getStringPref('extensions.webextensions.uuids'))['vidtune@vidtune.local'];");
   await driver.setContext(firefox.Context.CONTENT);
   await driver.get(`http://127.0.0.1:${server.address().port}/`);
+  console.log('Firefox Picture in Picture API:', await driver.executeScript('return {enabled:document.pictureInPictureEnabled,request:typeof document.querySelector("video").requestPictureInPicture}'));
   const controller = await readFile('src/content.js', 'utf8');
   const compressorSettings = Object.fromEntries([...controller.matchAll(/compressor\.(\w+)\.value = (-?[\d.]+);/g)]
     .map((match) => [match[1], Number(match[2])]));
@@ -82,9 +83,20 @@ try {
   await driver.switchTo().newWindow('tab');
   const extensionHandle = await driver.getWindowHandle();
   await driver.get(`moz-extension://${uuid}/popup.html`);
+  await driver.wait(async () => await driver.executeScript('return !!document.querySelector("#speed-value")'), 5000);
   if (!(await driver.findElement({ id: 'speed-value' }).isDisplayed())) throw new Error('Popup speed control did not render');
-  await driver.wait(async () => (await driver.findElement({ id: 'video-summary' }).getText()) === '1 video found',
+  await driver.wait(async () => await driver.executeScript('return document.querySelector("#video-summary").textContent === "1 video found"'),
     5000, 'Extension tab did not locate the video tab');
+  await driver.executeScript('const select=document.getElementById("tool-count");select.value="10";select.dispatchEvent(new Event("change",{bubbles:true}))');
+  await driver.wait(async () => await driver.executeScript('return document.querySelectorAll(".module-row").length === 10'), 5000);
+  await driver.executeScript('document.getElementById("smart-organize").click()');
+  await driver.wait(async () => await driver.executeScript('return !!document.querySelector(".speed-workspace")'), 5000);
+  await driver.findElement({ id: 'volume-slider' }).sendKeys('d');
+  await driver.wait(async () => (await driver.findElement({ id: 'speed-value' }).getText()) === '1.1×', 5000);
+  await driver.findElement({ id: 'tool-count' }).sendKeys('a');
+  await driver.wait(async () => (await driver.findElement({ id: 'speed-value' }).getText()) === '1×', 5000);
+  await driver.executeScript('document.getElementById("smart-organize").click()');
+  await driver.wait(async () => await driver.executeScript('return !document.querySelector(".speed-workspace")'), 5000);
   if (await driver.findElement({ id: 'volume-slider' }).getAttribute('value') !== '100') {
     throw new Error('100% volume did not start at the slider midpoint');
   }
@@ -115,6 +127,11 @@ try {
     if (result?.error) throw new Error(result.error);
     return result;
   }
+
+  const monoOn = await control({ type: 'SET_MONO', enabled: true });
+  if (!monoOn.mono || monoOn.monoUnavailable) throw new Error('Mono audio did not activate');
+  const monoOff = await control({ type: 'SET_MONO', enabled: false });
+  if (monoOff.mono) throw new Error('Mono audio did not turn off');
 
   async function waitForRate(id, speed) {
     await driver.wait(async () =>
@@ -449,6 +466,57 @@ try {
   if (restored.error || restored.volume !== 1.5 || !restored.other.active || restored.other.volume !== 3) {
     throw new Error(`Disabling one tab changed another: ${JSON.stringify(restored)}`);
   }
+  await driver.switchTo().window(pageHandle);
+  await driver.get(`http://127.0.0.1:${server.address().port}/`);
+  await driver.executeScript(`const canvas=document.createElement('canvas');canvas.width=320;canvas.height=180;
+    canvas.getContext('2d').fillRect(0,0,320,180);
+    const video=document.querySelector('video');video.srcObject=canvas.captureStream(15);
+    video.muted=true;return video.play();`);
+  await driver.wait(async () => await driver.executeScript('const v=document.querySelector("video");return v.videoWidth > 0 && v.readyState >= 2'), 5000);
+  await driver.switchTo().window(extensionHandle);
+  await driver.navigate().refresh();
+  await driver.wait(async () => await driver.findElement({ id: 'toggle-pip' }).isEnabled(), 5000);
+  await driver.findElement({ id: 'toggle-pip' }).click();
+  await driver.wait(async () => (await driver.findElement({ id: 'status' }).getText()) === 'Click PiP on the video',
+    5000, 'Firefox did not offer the in-video PiP control');
+  await driver.switchTo().window(pageHandle);
+  await driver.findElement({ css: 'button[aria-label="Open Picture in Picture for this video"]' }).click();
+  await driver.switchTo().window(extensionHandle);
+  await driver.navigate().refresh();
+  await driver.wait(async () => await driver.executeScript('return document.querySelector("#toggle-pip")?.getAttribute("aria-pressed") === "true"'),
+    5000, 'Firefox Picture in Picture did not open');
+  await driver.findElement({ id: 'toggle-pip' }).click();
+  await driver.wait(async () => await driver.executeScript('return document.querySelector("#toggle-pip")?.getAttribute("aria-pressed") === "false"'),
+    5000, 'Firefox Picture in Picture did not close');
+  await driver.switchTo().window(pageHandle);
+  await driver.get(`http://127.0.0.1:${server.address().port}/`);
+  await driver.executeScript('document.querySelector("video").src=arguments[0]', wavUrl);
+  await driver.wait(async () => await driver.executeScript('return document.querySelector("video").readyState >= 2'), 5000);
+  await driver.findElement({ id: 'main' }).click();
+  await driver.executeScript('return document.querySelector("video").play()');
+  await waitForRate('main', 1.8);
+  await driver.switchTo().window(optionsHandle);
+  await driver.navigate().refresh();
+  await driver.executeScript(`document.querySelector('#site-volume-enabled').checked=true;
+    document.querySelector('#site-volume').value='75';
+    document.querySelector('#site-disabled').checked=true;`);
+  await driver.findElement({ css: '#settings-form button[type="submit"]' }).click();
+  await driver.wait(async () => (await driver.findElement({ id: 'feedback' }).getText()) === 'Settings saved.', 5000);
+  await driver.switchTo().window(extensionHandle);
+  await driver.navigate().refresh();
+  await driver.wait(async () => (await driver.findElement({ id: 'status' }).getText()) === 'Disabled on this site',
+    5000, 'Firefox site disable did not reach the popup');
+  await driver.switchTo().window(pageHandle);
+  if (await driver.executeScript('return document.querySelector("video").playbackRate') !== 1) {
+    throw new Error('Firefox site disable did not restore native speed');
+  }
+  await driver.switchTo().window(optionsHandle);
+  await driver.findElement({ id: 'site-disabled' }).click();
+  await driver.findElement({ css: '#settings-form button[type="submit"]' }).click();
+  const siteAfterEnable = await driver.executeAsyncScript('browser.storage.local.get("settings").then(arguments[arguments.length-1])');
+  await driver.switchTo().window(pageHandle);
+  await waitForRate('main', siteAfterEnable.settings.siteSpeeds['127.0.0.1']);
+  await waitForVolume('main', 0.75);
   console.log('Firefox passed: nested shadow players, dynamic replacement, speed recovery, HEAD-rejected audio, independent tab volumes and existing controls.');
 } finally {
   if (driver) await driver.quit();

@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { resolve } from 'node:path';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { Builder } from 'selenium-webdriver';
 import edge from 'selenium-webdriver/edge.js';
 import chrome from 'selenium-webdriver/chrome.js';
@@ -84,7 +84,83 @@ try {
   await driver.switchTo().newWindow('tab');
   const popup = await driver.getWindowHandle();
   await driver.get(`${extensionUrl}/popup.html`);
-  await driver.wait(async () => (await driver.findElement({ id: 'video-summary' }).getText()) === '1 video found', 5000);
+  if (process.argv.includes('--screenshot')) await driver.manage().window().setRect({ width: 650, height: 900 });
+  await driver.wait(async () => await driver.executeScript('return document.querySelector("#video-summary").textContent === "1 video found"'), 5000);
+  const initialLayout = await driver.executeScript('return {count:document.getElementById("tool-count").value,smart:document.getElementById("smart-organize").checked}');
+  if (initialLayout.count !== '5' || !initialLayout.smart) throw new Error(`Unexpected default layout: ${JSON.stringify(initialLayout)}`);
+  const layout = await driver.executeScript('return {width:document.body.scrollWidth,height:document.querySelector(".shell").getBoundingClientRect().bottom,refresh:!!document.querySelector("#refresh")}');
+  if (layout.width !== 360 || layout.height > 600 || layout.refresh) throw new Error(`Popup layout overflow: ${JSON.stringify(layout)}`);
+  if (process.argv.includes('--screenshot')) {
+    await writeFile('work/popup-preview-chrome.png', Buffer.from(await driver.findElement({ css: '.shell' }).takeScreenshot(), 'base64'));
+  }
+  await driver.executeScript('const select=document.getElementById("tool-count");select.value="10";select.dispatchEvent(new Event("change",{bubbles:true}))');
+  await driver.wait(async () => await driver.executeScript('return document.querySelectorAll(".module-row").length === 10'), 5000);
+  const tenLayout = await driver.executeScript('return {height:document.querySelector(".shell").getBoundingClientRect().bottom,width:document.body.scrollWidth}');
+  if (tenLayout.height > 600 || tenLayout.width !== 360) throw new Error(`Ten-module popup overflow: ${JSON.stringify(tenLayout)}`);
+  if (process.argv.includes('--screenshot')) {
+    await writeFile('work/popup-preview-10.png', Buffer.from(await driver.findElement({ css: '.shell' }).takeScreenshot(), 'base64'));
+  }
+  const swap = await driver.executeScript(`const select=document.querySelector('.module-row[data-index="0"] .module-select');
+    select.value='pip';select.dispatchEvent(new Event('change',{bubbles:true}));return true;`);
+  if (!swap) throw new Error('Module selection failed');
+  await driver.wait(async () => await driver.executeScript('const rows=document.querySelectorAll(".module-row");return rows[0]?.dataset.module === "pip" && rows[3]?.dataset.module === "speed"'), 5000);
+  await driver.executeScript(`const select=document.querySelector('.module-row[data-index="0"] .module-select');
+    select.value='speed';select.dispatchEvent(new Event('change',{bubbles:true}));`);
+  await driver.wait(async () => await driver.executeScript('return document.querySelector(".module-row")?.dataset.module === "speed"'), 5000);
+  await driver.executeScript('const toggle=document.getElementById("smart-organize");toggle.checked=true;toggle.dispatchEvent(new Event("change",{bubbles:true}))');
+  await driver.wait(async () => await driver.executeScript('return document.querySelector(".module-list.smart") !== null'), 5000);
+  const smartHeight = await driver.executeScript('return document.querySelector(".shell").getBoundingClientRect().bottom');
+  if (smartHeight > 600) throw new Error(`Smart Organize overflow: ${smartHeight}`);
+  if (process.argv.includes('--screenshot')) {
+    await writeFile('work/popup-preview-smart.png', Buffer.from(await driver.findElement({ css: '.shell' }).takeScreenshot(), 'base64'));
+  }
+  await driver.executeScript('const select=document.getElementById("tool-count");select.value="5";select.dispatchEvent(new Event("change",{bubbles:true}))');
+  await driver.wait(async () => await driver.executeScript('return document.querySelector(".module-list.smart-five") !== null'), 5000);
+  const grouped = await driver.executeScript('return !!document.querySelector(".audio-workspace #mono-toggle") && !!document.querySelector(".audio-workspace #tab-volume-only") && !!document.querySelector(".speed-workspace #smart-manual") && document.querySelectorAll(".speed-presets button").length >= 3');
+  if (!grouped) throw new Error('Smart tools were not grouped with their related controls');
+  if (process.argv.includes('--screenshot')) {
+    await writeFile('work/popup-preview-smart-5.png', Buffer.from(await driver.findElement({ css: '.shell' }).takeScreenshot(), 'base64'));
+  }
+  await driver.executeScript('document.getElementById("customize-tools").click()');
+  await driver.wait(async () => await driver.executeScript('return !document.getElementById("tool-choices").hidden && document.getElementById("module-list").hidden && document.querySelectorAll(".choice-select").length === 5'), 5000);
+  const chooserHeight = await driver.executeScript('return document.querySelector(".shell").getBoundingClientRect().bottom');
+  if (chooserHeight > 600) throw new Error(`Five-tool chooser overflow: ${chooserHeight}`);
+  await driver.executeScript('document.getElementById("customize-tools").click()');
+  await driver.wait(async () => await driver.executeScript('return document.getElementById("tool-choices").hidden && !document.getElementById("module-list").hidden'), 5000);
+  for (const count of [2, 5, 10]) {
+    await driver.executeScript('const select=document.getElementById("tool-count");select.value=String(arguments[0]);select.dispatchEvent(new Event("change",{bubbles:true}))', count);
+    await driver.wait(async () => await driver.executeScript('return document.querySelectorAll(".module-row").length === arguments[0] && !!document.querySelector(".speed-workspace")', count), 5000);
+    const size = await driver.executeScript('return {height:document.querySelector(".shell").getBoundingClientRect().height,width:document.body.scrollWidth}');
+    if (size.height > 600 || size.width !== 360) throw new Error(`Smart ${count} overflow: ${JSON.stringify(size)}`);
+    await driver.findElement({ id: 'volume-slider' }).sendKeys('d');
+    await driver.wait(async () => (await driver.findElement({ id: 'speed-value' }).getText()) === '1.1×', 5000);
+    await driver.findElement({ id: 'tool-count' }).sendKeys('a');
+    await driver.wait(async () => (await driver.findElement({ id: 'speed-value' }).getText()) === '1×', 5000);
+    await driver.findElement({ css: '.speed-presets button[data-speed="1.5"]' }).click();
+    await driver.wait(async () => (await driver.findElement({ id: 'speed-value' }).getText()) === '1.5×', 5000);
+    await driver.findElement({ id: 'increase' }).sendKeys('q');
+    await driver.wait(async () => (await driver.findElement({ id: 'speed-value' }).getText()) === '1×', 5000);
+    if (count === 5) {
+      await driver.executeScript('document.getElementById("smart-manual").value="1.7"');
+      await driver.findElement({ css: '[data-action="SMART_SPEED"]' }).click();
+      await driver.wait(async () => (await driver.findElement({ id: 'speed-value' }).getText()) === '1.7×', 5000);
+      await driver.findElement({ css: '.speed-details [data-action="RESET"]' }).click();
+      await driver.wait(async () => (await driver.findElement({ id: 'speed-value' }).getText()) === '1×', 5000);
+      await driver.findElement({ css: '.module-list [data-volume="2"]' }).click();
+      await driver.wait(async () => (await driver.findElement({ id: 'volume-value' }).getText()) === '200%', 5000);
+      await driver.findElement({ css: '.module-list [data-volume="1"]' }).click();
+      await driver.wait(async () => (await driver.findElement({ id: 'volume-value' }).getText()) === '100%', 5000);
+    }
+    if (process.argv.includes('--screenshot')) await writeFile(`work/smart-${count}.png`, Buffer.from(await driver.findElement({ css: '.shell' }).takeScreenshot(), 'base64'));
+  }
+  await driver.executeScript('const select=document.getElementById("tool-count");select.value="10";select.dispatchEvent(new Event("change",{bubbles:true}))');
+  await driver.wait(async () => await driver.executeScript('return document.querySelector(".module-list.smart-ten") !== null'), 5000);
+  await driver.executeScript('document.getElementById("smart-organize").click()');
+  await driver.wait(async () => await driver.executeScript('return document.querySelector(".module-list.smart") === null'), 5000);
+  await driver.executeScript('const select=document.getElementById("tool-count");select.value="5";select.dispatchEvent(new Event("change",{bubbles:true}))');
+  await driver.wait(async () => await driver.executeScript('return document.querySelectorAll(".module-row").length === 5'), 5000);
+  await driver.executeScript('const select=document.getElementById("tool-count");select.value="10";select.dispatchEvent(new Event("change",{bubbles:true}))');
+  await driver.wait(async () => await driver.executeScript('return document.querySelectorAll(".module-row").length === 10'), 5000);
   await driver.findElement({ id: 'increase' }).click();
   await driver.wait(async () => (await driver.findElement({ id: 'speed-value' }).getText()) === '1.1×', 5000);
   await driver.findElement({ id: 'increase' }).sendKeys('d');
@@ -108,9 +184,9 @@ try {
   if ((await control({ type: 'SET_VOLUME', volume: 0.25 })).volume !== 0.25) throw new Error('Chromium native volume failed');
   const boost = await control({ type: 'SET_VOLUME', volume: 3 });
   if (boost.volume !== 3 || boost.boostUnavailable) throw new Error('Chromium boost failed');
-  await driver.findElement({ id: 'refresh' }).click();
+  await driver.navigate().refresh();
   await driver.wait(async () => (await driver.findElement({ id: 'volume-value' }).getText()) === '300%', 5000);
-  await driver.findElement({ id: 'tab-volume-only' }).click();
+  await driver.executeScript('document.getElementById("tab-volume-only").click()');
   await driver.wait(async () => {
     const scoped = await driver.executeAsyncScript(`const done=arguments[arguments.length-1];
       chrome.storage.session.get('volumeScopes').then(done);`);
@@ -191,6 +267,107 @@ try {
   const framedSpeed = await control({ type: 'SET_SPEED', speed: 1.8 }, firstId);
   const framedBoost = await control({ type: 'SET_VOLUME', volume: 3 }, firstId);
   if (framedSpeed.speed !== 1.8 || framedBoost.volume !== 3 || framedBoost.boostUnavailable) throw new Error('Embedded cross-origin player failed');
+  await driver.switchTo().window(page);
+  await driver.get(`http://127.0.0.1:${server.address().port}/`);
+  await driver.executeScript(`const canvas=document.createElement('canvas');canvas.width=320;canvas.height=180;
+    canvas.getContext('2d').fillRect(0,0,320,180);
+    const video=document.querySelector('video');video.srcObject=canvas.captureStream(15);
+    video.muted=true;return video.play();`);
+  await driver.wait(async () => await driver.executeScript('const v=document.querySelector("video");return v.videoWidth > 0 && v.readyState >= 2'), 5000);
+  await driver.switchTo().window(popup);
+  await driver.navigate().refresh();
+  await driver.wait(async () => await driver.findElement({ id: 'toggle-pip' }).isEnabled(), 5000);
+  await driver.findElement({ id: 'toggle-pip' }).click();
+  await driver.wait(async () => await driver.executeScript('return document.querySelector("#toggle-pip")?.getAttribute("aria-pressed") === "true"'),
+    5000, 'Popup Picture in Picture did not open');
+  await driver.findElement({ id: 'toggle-pip' }).click();
+  await driver.wait(async () => await driver.executeScript('return document.querySelector("#toggle-pip")?.getAttribute("aria-pressed") === "false"'),
+    5000, 'Popup Picture in Picture did not close');
+  const keySaved = await driver.executeAsyncScript(`const done=arguments[arguments.length-1];
+    chrome.storage.local.get('settings').then(({settings}) => {
+    settings.shortcuts={...(settings.shortcuts??{}),pip:'KeyP'};return chrome.storage.local.set({settings});
+  }).then(()=>done(true),error=>done({error:String(error)}));`);
+  if (keySaved !== true) throw new Error(`Could not set PiP shortcut: ${JSON.stringify(keySaved)}`);
+  await driver.switchTo().window(page);
+  await driver.findElement({ css: 'body' }).sendKeys('p');
+  await driver.switchTo().window(popup);
+  await driver.wait(async () => (await control({ type: 'GET_STATE' }, firstId)).pipActive, 5000,
+    'Picture in Picture shortcut did not open');
+  await driver.switchTo().window(page);
+  await driver.findElement({ css: 'body' }).sendKeys('p');
+  await driver.switchTo().window(popup);
+  await driver.wait(async () => !(await control({ type: 'GET_STATE' }, firstId)).pipActive, 5000,
+    'Picture in Picture shortcut did not close');
+  await driver.executeAsyncScript(`chrome.runtime.sendMessage({type:'SET_VOLUME_SCOPE',tabId:arguments[0],enabled:false})
+    .then(arguments[arguments.length-1]);`, firstId);
+  await control({ type: 'SYNC_VOLUME_SCOPE' }, firstId);
+
+  await driver.switchTo().newWindow('tab');
+  const optionsPage = await driver.getWindowHandle();
+  await driver.get(`${extensionUrl}/options.html`);
+  await driver.wait(async () => (await driver.findElement({ id: 'site-name' }).getText()) === '127.0.0.1', 5000);
+  await driver.executeScript(`document.querySelector('#site-enabled').checked=true;
+    document.querySelector('#site-speed').value='1.25';
+    document.querySelector('#site-volume-enabled').checked=true;
+    document.querySelector('#site-volume').value='75';`);
+  await driver.findElement({ css: '#settings-form button[type="submit"]' }).click();
+  await driver.wait(async () => (await driver.findElement({ id: 'feedback' }).getText()) === 'Settings saved.', 5000);
+  await driver.switchTo().window(page);
+  await driver.navigate().refresh();
+  await playMedia();
+  await driver.switchTo().window(popup);
+  const profiled = await control({ type: 'GET_STATE' }, firstId);
+  if (profiled.speed !== 1.25 || profiled.volume !== 0.75) throw new Error(`Site profile did not apply: ${JSON.stringify(profiled)}`);
+  await driver.switchTo().window(page);
+  await driver.get(`http://127.0.0.1:${server.address().port}/frames`);
+  await driver.switchTo().frame(await driver.findElement({ css: 'iframe' }));
+  await playMedia();
+  await driver.switchTo().defaultContent();
+  await driver.switchTo().window(popup);
+  const framedProfile = await control({ type: 'GET_STATE' }, firstId);
+  if (framedProfile.speed !== 1.25 || framedProfile.volume !== 0.75) {
+    throw new Error(`Site profile did not reach the embedded player: ${JSON.stringify(framedProfile)}`);
+  }
+  await driver.switchTo().window(page);
+  await driver.get(`http://127.0.0.1:${server.address().port}/`);
+  await playMedia();
+  await driver.findElement({ css: 'body' }).sendKeys('d');
+  await driver.wait(async () => await driver.executeScript('return document.querySelector("video").playbackRate === 1.35'), 5000);
+  await driver.switchTo().window(popup);
+  const savedProfile = await driver.executeAsyncScript('chrome.storage.local.get("settings").then(arguments[arguments.length-1])');
+  if (savedProfile.settings.siteSpeeds['127.0.0.1'] !== 1.35 || savedProfile.settings.siteVolumes['127.0.0.1'] !== 0.75) {
+    throw new Error('Site profile changes were not persisted');
+  }
+  await driver.executeAsyncScript(`chrome.storage.local.get('settings').then(({settings}) => {
+    settings.siteSpeeds['localhost']=1.5;settings.siteVolumes['localhost']=1.25;
+    return chrome.storage.local.set({settings});}).then(arguments[arguments.length-1]);`);
+  await driver.switchTo().window(optionsPage);
+  await driver.navigate().refresh();
+  await driver.wait(async () => (await driver.findElement({ css: '.profile-row strong' }).getText()) === 'localhost', 5000);
+  await driver.findElement({ css: '.profile-row .profile-speed' }).clear();
+  await driver.findElement({ css: '.profile-row .profile-speed' }).sendKeys('1.75');
+  await driver.findElement({ css: '#settings-form button[type="submit"]' }).click();
+  await driver.wait(async () => (await driver.findElement({ id: 'feedback' }).getText()) === 'Settings saved.', 5000);
+  const editedProfile = await driver.executeAsyncScript('chrome.storage.local.get("settings").then(arguments[arguments.length-1])');
+  if (editedProfile.settings.siteSpeeds.localhost !== 1.75) throw new Error('Saved site could not be edited');
+  await driver.findElement({ css: '.profile-row button' }).click();
+  await driver.findElement({ css: '#settings-form button[type="submit"]' }).click();
+  const removedProfile = await driver.executeAsyncScript('chrome.storage.local.get("settings").then(arguments[arguments.length-1])');
+  if (removedProfile.settings.siteSpeeds.localhost || removedProfile.settings.siteVolumes.localhost) {
+    throw new Error('Saved site could not be removed');
+  }
+  await driver.findElement({ id: 'site-disabled' }).click();
+  await driver.findElement({ css: '#settings-form button[type="submit"]' }).click();
+  await driver.wait(async () => (await driver.findElement({ id: 'feedback' }).getText()) === 'Settings saved.', 5000);
+  await driver.switchTo().window(popup);
+  await driver.navigate().refresh();
+  await driver.wait(async () => (await driver.findElement({ id: 'status' }).getText()) === 'Disabled on this site', 5000);
+  if (await driver.findElement({ id: 'increase' }).isEnabled() || await driver.findElement({ id: 'toggle-pip' }).isEnabled()) {
+    throw new Error('Disabled site kept active controls');
+  }
+  await driver.switchTo().window(page);
+  const disabledVideo = await driver.executeScript('const v=document.querySelector("video");return {speed:v.playbackRate,volume:v.volume}');
+  if (disabledVideo.speed !== 1 || disabledVideo.volume !== 1) throw new Error(`Disabling site kept video effects: ${JSON.stringify(disabledVideo)}`);
   console.log(`${useChrome ? 'Chrome' : 'Edge'} passed: playback, speed recovery, native volume, boost, independent tabs/reload/cleanup, shadow replacement, shortcuts, CORS recovery and cross-origin iframe.`);
 } catch (error) {
   if (driver) console.error('Current test page:', await driver.executeScript('return document.body.innerText').catch(() => 'unavailable'));

@@ -2,9 +2,9 @@
 
 ## Current checkpoint
 
-- Version: 0.5.7
-- Phase: 5 — Advanced Audio / Volume Boost
-- Status: v0.5.7 compatibility refinements validated in Firefox and Chromium (Edge); user testing pending
+- Version: 0.8.2 on `feature/modular-popup`
+- Phase: separate modular popup version
+- Status: 2/5/10 slot selection, mono audio and Smart Organize implemented; automated browser checks passed, manual user testing pending
 
 ## Completed
 
@@ -27,6 +27,10 @@
 - Native 0%–100% volume control in the popup, with a squared slider curve for fine control near silence
 - Actual volume percentage shown down to 0.01%; saved volume follows newly loaded and dynamically replaced videos
 - Centered volume slider: 0%–100% on the left and 100%–300% on the right, with native volume below 100% and on-demand Web Audio gain plus compression above it
+- Compact fixed-width popup without a scan card or scrollbars; a small PiP icon sits next to Settings
+- Picture in Picture toggle and optional shortcut. Firefox uses a temporary in-video button to provide the required page click
+- Site profiles for speed and volume, site disable, and a management list to edit/remove saved profiles
+- Top-level site preferences apply to accessible embedded video frames; tab-only volume overrides a site profile
 - Boost preference follows video replacement and reload; unsupported cross-origin media stays audible at native 100% with clear feedback
 
 ## Decisions
@@ -105,4 +109,10 @@
 
 ## Next milestone
 
-The user declined Picture in Picture. Continue compatibility refinements and user testing; choose the next feature only when requested.
+The modular 0.8.2 version lives on `feature/modular-popup` for user testing. Keep the previous line of development on `main`. The Firefox package was submitted to Mozilla as unlisted on 22 October 2026, with source code and reviewer notes; automated validation found no errors or warnings. Signature is pending. After the signed XPI is available, install it permanently from Firefox's Add-ons Manager. Future unlisted versions need manual updates until an update URL is configured.
+
+## v0.7.0 test results
+
+- Chrome for Testing 155 and Edge 154: PiP opened and closed from the popup and configurable shortcut. Site profiles applied to the main page and cross-origin iframe; the saved-sites list edited and removed entries. Disabling a site removed the active speed/volume effects and disabled popup controls.
+- Firefox: popup PiP request correctly falls back to a temporary button on the video; clicking it opened PiP, and the popup icon closed it. Existing Firefox integration remained green.
+- Popup layout checked at 360px width and below the Firefox/Chromium 600px popup height limit. Mozilla extension validation had zero errors and warnings.

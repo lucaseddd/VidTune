@@ -1,6 +1,26 @@
 # VidTune
 
-**VidTune — Speed & Volume** is a lightweight browser extension under development. Version 0.5.8 validates Chrome and Edge compatibility and protects playback when a media server cannot restore the current position.
+**VidTune — Modular Controls** is a lightweight browser extension for video playback controls. The `feature/modular-popup` branch contains version 0.8.4, with a configurable popup and mono audio.
+
+Firefox Add-ons: [VidTune](https://addons.mozilla.org/pt-BR/firefox/addon/vidtune/). The current public listing is being reviewed by Mozilla.
+
+## Modular popup
+
+- By default, VidTune opens with **5 tools** and **Smart Organize** enabled. Open the **Layout** list at any time to choose **2 tools**, **5 tools**, or **10 tools**, turn Smart Organize on or off, and customize each function slot. Selecting a function already used in another slot swaps them, so every visible function stays unique. Each layout remembers its own selection.
+- Available functions: video speed, volume boost, mono audio, Picture in Picture, speed presets, custom speed, speed reset, skip backward, skip forward, and independent volume for this tab. The skip controls use the jump length from Settings.
+- **Smart Organize** groups controls by purpose. With two tools, Playback Speed has a large readout, presets, a custom value and reset; Volume Boost has a full-width slider, scale and quick levels. With five tools, PiP sits in the speed panel header and Mono/This tab only sit inside the audio panel. With ten tools, backward/forward jumps form a compact transport bar, while presets, custom speed and reset remain integrated into the speed panel. Open **Choose tools** to edit the selections. Every layout stays within the browser's 600-pixel popup height limit.
+- A/D/Q shortcuts work in Smart Organize, including while the volume slider or Layout list has focus. Editable number fields retain normal typing behavior.
+- **Mono audio** mixes the left and right channels and sends the result to both outputs. It is saved as a global preference and follows newly loaded videos. Like volume boost, mono processing needs a usable Web Audio path; the popup reports when a video source cannot safely be routed.
+
+## Screenshots
+
+![VidTune 0.8.4 with the default five-tool Smart Organize layout](presentation/screenshots/default-smart-organize.png)
+
+The [Firefox Add-ons listing](https://addons.mozilla.org/pt-BR/firefox/addon/vidtune/) uses these three feature images:
+
+- [Playback speed and shortcuts](presentation/01-playback-speed.png)
+- [Volume boost and audio controls](presentation/02-volume-boost.png)
+- [Smart Organize layouts](presentation/03-smart-organize.png)
 
 ## Speed controls
 
@@ -9,7 +29,7 @@
 - On pages containing a video, press **A** to slow down, **D** to speed up, or **Q** to reset to 1×. Holding a speed key uses normal keyboard repeat. These keys also work while the popup has focus. Shortcuts are ignored while typing in editable fields and when modifier keys are held.
 - Open **Settings** from the gear in the popup to change the speed step, preset buttons and shortcut letters. The custom number input's spinner follows the chosen step; typed values retain 0.01× precision.
 - Settings also lets you remember a speed for the current site. Site speeds apply on new visits and follow dynamically added videos.
-- Optional skip backward and forward controls live only in Settings. They start disabled with no keys assigned, and their jump length can be set from 1 to 60 seconds. They seek only inside the video's available range.
+- Optional skip backward and forward keyboard shortcuts start disabled with no keys assigned in Settings. The popup can show Skip Back and Skip Ahead tools. Their jump length can be set from 1 to 60 seconds, and they seek only inside the video's available range.
 - A small speed indicator appears at the video's upper-left corner while player controls are visible and briefly after a speed change. It ignores pointer input. YouTube's control visibility is followed directly; other players use pointer activity and a short idle timeout.
 - Videos inside open shadow roots, including nested web components, are detected for popup controls and shortcuts. Lifecycle monitoring follows replacements inside those components. Closed shadow roots are not supported.
 - If a player resets the selected non-default speed, VidTune reapplies it, with at most five corrections per second to avoid an endless conflict.
@@ -18,7 +38,7 @@
 
 ## Volume control
 
-Videos inside accessible web iframes are supported, including cross-origin players. Reload existing pages after updating to v0.5.8. The popup prefers visible players, then playback state and size. Keyboard shortcuts work while the video frame has focus.
+Videos inside accessible web iframes are supported, including cross-origin players. Reload existing pages after updating. The popup prefers visible players, then playback state and size. Keyboard shortcuts work while the video frame has focus.
 
 - The slider starts at 100% in the center. Move left toward 0%, or right for up to 300% boost. The 0%–100% half keeps fine control near silence: position 1 is 0.01%, position 10 is 1%, and position 50 is 25%.
 - Up to 100%, VidTune uses the video's native volume control. Above 100%, it creates a Web Audio gain path with peak compression for the selected video. Compression begins near full scale (−1 dB), so normal audio retains the requested amplification instead of being heavily reduced. Above 100%, the percentage is a progressive boost scale: 150% applies 4× gain, 200% applies 8×, 250% applies 16×, and 300% applies up to 32× (+30 dB). Gain transitions are smoothed over 30 ms. Peak compression can reduce the maximum on loud sources; perceived loudness depends on the source and output device. That path is created only after boost is requested and the video starts playing.
@@ -26,6 +46,13 @@ Videos inside accessible web iframes are supported, including cross-origin playe
 - Volume is saved locally and applied to new videos, including videos replaced by a site without navigation. Adjusting the slider above 0% also unmutes a muted video. A boosted video can be returned to native volume by moving the slider to 100% or lower.
 - When cross-origin media was loaded without CORS, VidTune checks whether its server permits audio processing. If it does, the video reconnects with CORS enabled, restoring its position, playback state and speed. This can briefly interrupt playback. A failed reconnection restores the original loading mode. Protected media, servers that reject the compatibility check, and streams whose current position is not seekable keep native audio. Non-seekable playback is not reloaded to enable boost, preventing an unexpected restart.
 - Some cross-origin media cannot safely be routed through Web Audio. VidTune keeps native playback at 100% and shows **Boost unavailable for this video** on those videos. A video paused before boost shows **Play video to enable boost**.
+
+## Picture in Picture and site profiles
+
+- The Picture in Picture module opens or closes PiP for the selected video. It appears unavailable if the video has no picture track or the browser or site blocks PiP. Assign an optional PiP letter in Settings.
+- Firefox needs a click on the video page to activate PiP. When its popup icon is pressed, VidTune shows a temporary **PiP** button on the video and returns to that tab. Click the temporary button to open PiP. Chrome and Edge open it directly from the popup.
+- Settings can remember speed and volume separately for each site, disable VidTune on a site, and edit or remove saved sites. The top-level site's profile also applies to videos in accessible embedded frames. An **Only this tab** volume takes precedence over the site's saved volume until that toggle is turned off.
+- The popup has a fixed 360-pixel width, with the page scan card and button removed. Video status remains in the header and is announced to assistive technology.
 
 ## Development
 
@@ -45,11 +72,15 @@ npm run firefox
 
 `npm run firefox` opens a temporary Firefox development window with VidTune and uBlock Origin loaded. Pass a URL after `--` to open a test page. The launcher and integration tests reuse the uBlock package already installed in a Windows Firefox profile; on other systems, set `UBLOCK_XPI` to its path. They stop if that package is unavailable. Alternatively, load `dist/manifest.json` through `about:debugging` → **This Firefox** → **Load Temporary Add-on**. In Chromium, use **Load unpacked** and select `dist-chromium/`. `npm run test:firefox` runs headlessly. `npm run test:edge` uses installed Microsoft Edge; `npm run test:chrome` uses official stable Chrome for Testing (downloaded and cached by Selenium if necessary). Both run headlessly with local fixtures. `npm run test:chromium` remains an alias for the Edge test. The manual launcher reuses an existing test window when available.
 
-Verified for v0.5.8 on Chrome for Testing 155.0.8059.39 and Edge 154.0.4258.62: popup controls and shortcuts, 0.1× spinner steps, page shortcuts and typing protection, speed reset recovery, native volume, rendered 8×/32× audio gain, independent tab volumes with reload/close cleanup, shadow player replacement, cross-origin iframes, CORS recovery (including rejected HEAD), and native playback fallback when CORS or seeking is unavailable. Firefox integration also passed. These controlled fixtures do not guarantee compatibility with every public site, DRM player or browser policy. The popup is tested as an extension page; browser-toolbar popup placement is not automated.
+Verified on Firefox, Chrome for Testing 156.0.8078.47 and Edge 155.0.4283.62: modular popup, speed and volume controls, PiP, site profiles, independent tab volumes, shadow player replacement, CORS recovery and native playback fallback. Firefox integration also checked mono activation and the in-video PiP flow. Tests use controlled local pages; public sites and DRM players may impose limits. The popup is tested as an extension page; browser-toolbar placement still needs visual confirmation.
 
 The temporary Firefox installation is removed when Firefox restarts. Rebuild and reload after source changes.
 
+The latest Firefox version is submitted through the public Mozilla listing: [VidTune on Firefox Add-ons](https://addons.mozilla.org/pt-BR/firefox/addon/vidtune/). Mozilla must finish reviewing a version before it appears publicly or updates an existing installation.
+
 ## Privacy and permissions
+
+Read the [VidTune Privacy Policy](PRIVACY.md).
 
 VidTune stores global settings locally and per-tab volumes in session storage. It has no analytics or remote service. When boost is requested for cross-origin media, it may send a CORS HEAD compatibility check to the current media server and reconnect the video in CORS mode. If HEAD fails, it tries a GET requesting one byte and cancels the response body immediately, including when the server ignores the range. The check omits credentials; no browsing or media data is sent to VidTune servers. A small content script runs on web pages to hear configured single-letter shortcuts and check whether a saved site speed or volume should be applied; these keys cannot be registered through the browser commands API. This requires access to web pages through the manifest's `<all_urls>` content-script match. A passive bootstrap and shortcut listener load in each web frame. The controller initializes only when used or when a saved preference is applied. `activeTab` and `scripting` provide fallback injection on existing tabs; `storage` saves preferences. `webNavigation` enumerates frames on demand so each command can target the main video. It also resolves the page URL when Chromium omits it from a tab query. Frame URLs are not stored or transmitted, and no navigation event listeners are registered. The background script runs only for extension events. At 1× and 100% volume without a site profile, the controller has no document-wide video mutation observer or video lifecycle listeners; YouTube's player class observer may remain active for the indicator. No new permissions were needed for boost.
 
