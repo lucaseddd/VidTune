@@ -1,70 +1,79 @@
-# VidTune
+# VidTune - Speed, Volume & PiP
 
-**A lightweight video speed controller and volume booster for Firefox, Chrome, and Edge.**
+**A video speed controller and volume booster for Firefox, Opera, Chrome, and Microsoft Edge.** VidTune gives you quick control over playback speed, louder audio, mono sound, and Picture-in-Picture, with a compact popup you can customize.
 
-VidTune adds quick controls for video speed, louder audio, mono sound, and Picture in Picture. Choose a compact layout that fits the way you watch.
+[Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/vidtune/) · [Opera Add-ons](https://addons.opera.com/en/extensions/details/vidtune-speed-volume-pip/) · [Opera developer page](https://addons.opera.com/developer/package/308049/) · [Privacy policy](PRIVACY.md)
 
-[Get VidTune for Firefox](https://addons.mozilla.org/pt-BR/firefox/addon/vidtune/) · [Privacy policy](PRIVACY.md)
+> The Opera listing is being submitted for review. Its public download page will work after Opera approves the extension.
 
-## Main controls
+## Install VidTune
 
-- **Video speed:** slow down or speed up from 0.1× to 16×. Use presets, enter a custom speed, or press **A** / **D**. Press **Q** to reset.
-- **Volume boost:** adjust from mute to 300%. Keep a separate volume for each tab when you want.
-- **Mono audio:** send a blended left-and-right mix to both sides.
-- **Picture in Picture:** pop the video into a small floating window when the browser and player allow it.
-- **Site preferences:** remember speed and volume for a website.
+**Recommended — fastest:** Install VidTune directly from your browser's extension store. This is the simplest option and keeps updates automatic.
 
-## Make the popup yours
+- [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/vidtune/)
+- [Opera Add-ons](https://addons.opera.com/en/extensions/details/vidtune-speed-volume-pip/) (available after review)
+- Chrome and Microsoft Edge: coming soon.
 
-The default layout has **5 tools** with **Smart Organize** on. Pick 2, 5, or 10 tools, choose what each slot does, and switch Smart Organize on or off at any time.
+For the latest downloadable files, open the release directly:
 
-Smart Organize groups related controls so speed, volume, and video actions are easy to find.
+- [VidTune 0.8.4 — latest release](https://github.com/lucaseddd/VidTune-Speed-Volume-PiP/releases/tag/v0.8.4)
+- [VidTune 0.8.3](https://github.com/lucaseddd/VidTune-Speed-Volume-PiP/releases/tag/v0.8.3)
+- [VidTune 0.8.2](https://github.com/lucaseddd/VidTune-Speed-Volume-PiP/releases/tag/v0.8.2)
+
+Each release provides a **Firefox XPI installer** and a **source ZIP**. Install the XPI in Firefox; use the source archive to inspect or build the project. For Chromium browsers, install from their extension store when available; the Chromium ZIP is a store/build package, not a signed CRX installer.
+
+## Main features
+
+- **Video speed:** Set playback from 0.1× to 16× with presets, a custom value, or the **A** and **D** keys. Press **Q** to return to 1×.
+- **Volume boost:** Raise video volume up to 300%, mute it, or use a separate level for each tab.
+- **Mono audio:** Blend left and right audio channels and play the same mix through both sides.
+- **Picture-in-Picture:** Move a video to a floating window when the browser and player support it.
+- **Site preferences:** Remember a speed or volume level for a website.
+- **Custom layouts:** Choose 2, 5, or 10 controls. Smart Organize groups related tools for easier scanning.
 
 ## Preview
 
-<table align="center" cellspacing="0" cellpadding="4">
+<table width="100%" cellspacing="0" cellpadding="2">
   <tr>
-    <td align="center">
-      <a href="presentation/screenshots/default-smart-organize.png"><img src="presentation/screenshots/default-smart-organize.png" alt="VidTune with five tools and Smart Organize enabled" width="250" height="403"></a><br>
-      <sub><b>Everyday controls</b> · 5 tools with Smart Organize</sub>
+    <td width="50%" align="center">
+      <a href="presentation/screenshots/default-smart-organize.png"><img src="presentation/screenshots/default-smart-organize.png" alt="VidTune popup with five controls and Smart Organize enabled" width="250" height="403"></a><br>
+      <sub><b>Everyday controls</b><br>5 tools with Smart Organize</sub>
     </td>
-    <td align="center">
-      <a href="presentation/screenshots/layout-10-tools.png"><img src="presentation/screenshots/layout-10-tools.png" alt="VidTune with ten selectable controls" width="250" height="403"></a><br>
-      <sub><b>Full control</b> · 10 tools in one compact layout</sub>
+    <td width="50%" align="center">
+      <a href="presentation/screenshots/layout-10-tools.png"><img src="presentation/screenshots/layout-10-tools.png" alt="VidTune popup with ten customizable controls" width="250" height="403"></a><br>
+      <sub><b>Full control</b><br>10 tools in one compact layout</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <a href="presentation/screenshots/settings-speed-shortcuts.png"><img src="presentation/screenshots/settings-speed-shortcuts.png" alt="VidTune speed and keyboard shortcut settings" width="390"></a><br>
+      <sub><b>Speed and shortcuts</b><br>Set speed steps, presets, and keys</sub>
+    </td>
+    <td width="50%" align="center">
+      <a href="presentation/screenshots/settings-site-controls.png"><img src="presentation/screenshots/settings-site-controls.png" alt="VidTune website-specific speed and volume settings" width="390"></a><br>
+      <sub><b>Site controls</b><br>Save speed and volume by website</sub>
     </td>
   </tr>
 </table>
 
-<p align="center">
-  <a href="presentation/screenshots/settings-speed-shortcuts.png"><img src="presentation/screenshots/settings-speed-shortcuts.png" alt="VidTune settings for speed and keyboard shortcuts" width="100%"></a><br>
-  <sub><b>Speed and shortcuts</b> · Choose speed steps, presets, and keys</sub>
-</p>
+More screenshots: [speed controls](presentation/01-playback-speed.png) · [volume boost](presentation/02-volume-boost.png) · [Smart Organize](presentation/03-smart-organize.png)
 
-<p align="center">
-  <a href="presentation/screenshots/settings-site-controls.png"><img src="presentation/screenshots/settings-site-controls.png" alt="VidTune settings for skip controls and site preferences" width="100%"></a><br>
-  <sub><b>Site controls</b> · Save speed and volume for each website</sub>
-</p>
-Feature images for the Firefox listing: [speed controls](presentation/01-playback-speed.png) · [volume boost](presentation/02-volume-boost.png) · [Smart Organize](presentation/03-smart-organize.png)
+## Compatibility
 
-## Use VidTune
-
-**Firefox:** [install from Firefox Add-ons](https://addons.mozilla.org/pt-BR/firefox/addon/vidtune/).
-
-**Chrome and Edge:** build the Chromium version and load `dist-chromium/` as an unpacked extension.
-
-VidTune works in Firefox, Chrome, and Microsoft Edge. Protected videos, browser-restricted pages, and players that block audio processing can limit some controls.
+VidTune supports Firefox, Opera, Chrome, and Microsoft Edge. Some protected videos, restricted browser pages, or players that block audio processing may limit speed or volume controls.
 
 ## Build from source
 
 Requires Node.js 20 or later.
 
-```sh
+~~~sh
 npm ci
 npm run build
-```
+npm run package
+~~~
 
-Run `npm test` and `npm run lint` to check the project. See `package.json` for browser-specific tests and packaging.
+The package command creates the Firefox XPI, the Chromium store/build ZIP, and a source ZIP in the release folder.
 
 ## Privacy
 
-Settings stay in your browser. VidTune has no analytics. Read the [privacy policy](PRIVACY.md) for permissions and audio processing details.
+Settings stay in your browser. VidTune does not use analytics. See the [privacy policy](PRIVACY.md) for details about permissions and audio processing.
