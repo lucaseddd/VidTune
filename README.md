@@ -22,20 +22,40 @@ Smart Organize groups related controls so speed, volume, and video actions are e
 
 ## Preview
 
-<a href="presentation/screenshots/default-smart-organize.png"><img src="presentation/screenshots/default-smart-organize.png" alt="VidTune popup with five tools and Smart Organize enabled" width="420"></a>
+<table>
+  <tr>
+    <td width="50%" align="center">
+      <a href="presentation/screenshots/default-smart-organize.png"><img src="presentation/screenshots/default-smart-organize.png" alt="VidTune with five tools and Smart Organize enabled" width="250"></a><br>
+      <sub><b>Everyday controls</b><br>5 tools with Smart Organize</sub>
+    </td>
+    <td width="50%" align="center">
+      <a href="presentation/screenshots/layout-10-tools.png"><img src="presentation/screenshots/layout-10-tools.png" alt="VidTune with ten selectable controls" width="250"></a><br>
+      <sub><b>Full control</b><br>10 tools for a detailed layout</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <a href="presentation/screenshots/settings-speed-shortcuts.png"><img src="presentation/screenshots/settings-speed-shortcuts.png" alt="VidTune settings for speed and keyboard shortcuts" width="390"></a><br>
+      <sub><b>Speed and shortcuts</b><br>Choose steps, presets, and keys</sub>
+    </td>
+    <td width="50%" align="center">
+      <a href="presentation/screenshots/settings-site-controls.png"><img src="presentation/screenshots/settings-site-controls.png" alt="VidTune settings for skip controls and site preferences" width="390"></a><br>
+      <sub><b>Site controls</b><br>Save speed and volume per website</sub>
+    </td>
+  </tr>
+</table>
 
-More screenshots: [speed controls](presentation/01-playback-speed.png) · [volume boost](presentation/02-volume-boost.png) · [Smart Organize layouts](presentation/03-smart-organize.png)
+Feature images for the Firefox listing: [speed controls](presentation/01-playback-speed.png) · [volume boost](presentation/02-volume-boost.png) · [Smart Organize](presentation/03-smart-organize.png)
 
-## Compatibility
+## Use VidTune
 
-VidTune supports Firefox, Chrome, and Microsoft Edge. Results can vary on protected videos, restricted browser pages, and players that block audio processing. If a video cannot be safely boosted, its native sound continues.
+**Firefox:** [install from Firefox Add-ons](https://addons.mozilla.org/pt-BR/firefox/addon/vidtune/).
 
-## Install
+**Chrome and Edge:** build the Chromium version and load `dist-chromium/` as an unpacked extension.
 
-- **Firefox:** [install VidTune from Firefox Add-ons](https://addons.mozilla.org/pt-BR/firefox/addon/vidtune/).
-- **Chrome and Edge:** build the Chromium version with the steps below, then load the unpacked extension from `dist-chromium/`.
+VidTune works in Firefox, Chrome, and Microsoft Edge. Protected videos, browser-restricted pages, and players that block audio processing can limit some controls.
 
-## Build
+## Build from source
 
 Requires Node.js 20 or later.
 
@@ -44,8 +64,8 @@ npm ci
 npm run build
 ```
 
-Run checks with `npm test` and `npm run lint`. See the scripts in `package.json` for browser-specific checks and packaging.
+Run `npm test` and `npm run lint` to check the project. See `package.json` for browser-specific tests and packaging.
 
 ## Privacy
 
-Settings stay in your browser. VidTune does not use analytics. Read the [privacy policy](PRIVACY.md) for details about permissions and audio processing.
+Settings stay in your browser. VidTune has no analytics. Read the [privacy policy](PRIVACY.md) for permissions and audio processing details.
