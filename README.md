@@ -22,28 +22,28 @@ Smart Organize groups related controls so speed, volume, and video actions are e
 
 ## Preview
 
-<table>
+<table width="100%">
   <tr>
     <td width="50%" align="center">
-      <a href="presentation/screenshots/default-smart-organize.png"><img src="presentation/screenshots/default-smart-organize.png" alt="VidTune with five tools and Smart Organize enabled" width="250"></a><br>
-      <sub><b>Everyday controls</b><br>5 tools with Smart Organize</sub>
+      <a href="presentation/screenshots/default-smart-organize.png"><img src="presentation/screenshots/default-smart-organize.png" alt="VidTune with five tools and Smart Organize enabled" width="100%"></a><br>
+      <sub><b>Everyday controls</b> · 5 tools with Smart Organize</sub>
     </td>
     <td width="50%" align="center">
-      <a href="presentation/screenshots/layout-10-tools.png"><img src="presentation/screenshots/layout-10-tools.png" alt="VidTune with ten selectable controls" width="250"></a><br>
-      <sub><b>Full control</b><br>10 tools for a detailed layout</sub>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" align="center">
-      <a href="presentation/screenshots/settings-speed-shortcuts.png"><img src="presentation/screenshots/settings-speed-shortcuts.png" alt="VidTune settings for speed and keyboard shortcuts" width="390"></a><br>
-      <sub><b>Speed and shortcuts</b><br>Choose steps, presets, and keys</sub>
-    </td>
-    <td width="50%" align="center">
-      <a href="presentation/screenshots/settings-site-controls.png"><img src="presentation/screenshots/settings-site-controls.png" alt="VidTune settings for skip controls and site preferences" width="390"></a><br>
-      <sub><b>Site controls</b><br>Save speed and volume per website</sub>
+      <a href="presentation/screenshots/layout-10-tools.png"><img src="presentation/screenshots/layout-10-tools.png" alt="VidTune with ten selectable controls" width="100%"></a><br>
+      <sub><b>Full control</b> · 10 tools in one compact layout</sub>
     </td>
   </tr>
 </table>
+
+<p align="center">
+  <a href="presentation/screenshots/settings-speed-shortcuts.png"><img src="presentation/screenshots/settings-speed-shortcuts.png" alt="VidTune settings for speed and keyboard shortcuts" width="100%"></a><br>
+  <sub><b>Speed and shortcuts</b> · Choose speed steps, presets, and keys</sub>
+</p>
+
+<p align="center">
+  <a href="presentation/screenshots/settings-site-controls.png"><img src="presentation/screenshots/settings-site-controls.png" alt="VidTune settings for skip controls and site preferences" width="100%"></a><br>
+  <sub><b>Site controls</b> · Save speed and volume for each website</sub>
+</p>
 
 Feature images for the Firefox listing: [speed controls](presentation/01-playback-speed.png) · [volume boost](presentation/02-volume-boost.png) · [Smart Organize](presentation/03-smart-organize.png)
 
