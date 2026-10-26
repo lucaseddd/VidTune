@@ -86,6 +86,8 @@ try {
   await driver.get(`${extensionUrl}/popup.html`);
   if (process.argv.includes('--screenshot')) await driver.manage().window().setRect({ width: 650, height: 900 });
   await driver.wait(async () => await driver.executeScript('return document.querySelector("#video-summary").textContent === "1 video found"'), 5000);
+  const initialLayout = await driver.executeScript('return {count:document.getElementById("tool-count").value,smart:document.getElementById("smart-organize").checked}');
+  if (initialLayout.count !== '5' || !initialLayout.smart) throw new Error(`Unexpected default layout: ${JSON.stringify(initialLayout)}`);
   const layout = await driver.executeScript('return {width:document.body.scrollWidth,height:document.querySelector(".shell").getBoundingClientRect().bottom,refresh:!!document.querySelector("#refresh")}');
   if (layout.width !== 360 || layout.height > 600 || layout.refresh) throw new Error(`Popup layout overflow: ${JSON.stringify(layout)}`);
   if (process.argv.includes('--screenshot')) {
@@ -105,7 +107,7 @@ try {
   await driver.executeScript(`const select=document.querySelector('.module-row[data-index="0"] .module-select');
     select.value='speed';select.dispatchEvent(new Event('change',{bubbles:true}));`);
   await driver.wait(async () => await driver.executeScript('return document.querySelector(".module-row")?.dataset.module === "speed"'), 5000);
-  await driver.executeScript('document.getElementById("smart-organize").click()');
+  await driver.executeScript('const toggle=document.getElementById("smart-organize");toggle.checked=true;toggle.dispatchEvent(new Event("change",{bubbles:true}))');
   await driver.wait(async () => await driver.executeScript('return document.querySelector(".module-list.smart") !== null'), 5000);
   const smartHeight = await driver.executeScript('return document.querySelector(".shell").getBoundingClientRect().bottom');
   if (smartHeight > 600) throw new Error(`Smart Organize overflow: ${smartHeight}`);
@@ -144,9 +146,9 @@ try {
       await driver.wait(async () => (await driver.findElement({ id: 'speed-value' }).getText()) === '1.7×', 5000);
       await driver.findElement({ css: '.speed-details [data-action="RESET"]' }).click();
       await driver.wait(async () => (await driver.findElement({ id: 'speed-value' }).getText()) === '1×', 5000);
-      await driver.findElement({ css: '[data-volume="2"]' }).click();
+      await driver.findElement({ css: '.module-list [data-volume="2"]' }).click();
       await driver.wait(async () => (await driver.findElement({ id: 'volume-value' }).getText()) === '200%', 5000);
-      await driver.findElement({ css: '[data-volume="1"]' }).click();
+      await driver.findElement({ css: '.module-list [data-volume="1"]' }).click();
       await driver.wait(async () => (await driver.findElement({ id: 'volume-value' }).getText()) === '100%', 5000);
     }
     if (process.argv.includes('--screenshot')) await writeFile(`work/smart-${count}.png`, Buffer.from(await driver.findElement({ css: '.shell' }).takeScreenshot(), 'base64'));

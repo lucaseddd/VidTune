@@ -10,4 +10,4 @@ The `screenshots/` folder contains unedited captures of the running extension, i
 
 The original scalable icon is `../icons/icon.svg`, with PNG sizes from 16 to 256 pixels. Recreate these assets with `node scripts/presentation.js` after `npm ci` on a machine with Microsoft Edge installed. Generation uses an invisible test browser.
 
-Upload the three presentation images to the public Firefox listing in numbered order. A video is optional; the images already explain the core controls directly.
+The three presentation images were uploaded to the public Firefox listing in numbered order, with Portuguese and English captions. The listing URL is https://addons.mozilla.org/pt-BR/firefox/addon/vidtune/ . A video is optional; the images explain the core controls directly.

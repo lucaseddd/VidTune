@@ -37,6 +37,8 @@ test('volume slider gives fine control near zero and remains reversible', () => 
 });
 
 test('module layouts keep unique functions and reject damaged preferences', () => {
+  assert.equal(DEFAULT_SETTINGS.moduleCount, 5);
+  assert.equal(DEFAULT_SETTINGS.smartOrganize, true);
   const valid = normalizeSettings({ moduleCount: 5, mono: true,
     moduleLayouts: { 2: ['mono', 'volume'], 5: ['speed', 'mono', 'pip', 'volume', 'tabVolume'], 10: MODULES },
     smartOrganize: true });
@@ -45,7 +47,7 @@ test('module layouts keep unique functions and reject damaged preferences', () =
   assert.equal(valid.mono, true);
   assert.equal(valid.smartOrganize, true);
   const damaged = normalizeSettings({ moduleCount: 3, moduleLayouts: { 2: ['speed', 'speed'], 10: ['speed'] } });
-  assert.equal(damaged.moduleCount, 2);
+  assert.equal(damaged.moduleCount, 5);
   assert.deepEqual(damaged.moduleLayouts[2], DEFAULT_SETTINGS.moduleLayouts[2]);
   assert.deepEqual(damaged.moduleLayouts[10], MODULES);
 });
