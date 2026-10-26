@@ -4,7 +4,7 @@
 
 [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/vidtune/) · [Opera Add-ons](https://addons.opera.com/en/extensions/details/vidtune-speed-volume-pip/) · [Opera developer page](https://addons.opera.com/developer/package/308049/) · [Privacy policy](PRIVACY.md)
 
-> The Opera listing is being submitted for review. Its public download page will work after Opera approves the extension.
+> The Opera listing is awaiting moderation. Its public download page will work after Opera approves the extension.
 
 ## Install VidTune
 
@@ -20,7 +20,7 @@ For the latest downloadable files, open the release directly:
 - [VidTune 0.8.3](https://github.com/lucaseddd/VidTune-Speed-Volume-PiP/releases/tag/v0.8.3)
 - [VidTune 0.8.2](https://github.com/lucaseddd/VidTune-Speed-Volume-PiP/releases/tag/v0.8.2)
 
-Each release provides a **Firefox XPI installer** and a **source ZIP**. Install the XPI in Firefox; use the source archive to inspect or build the project. For Chromium browsers, install from their extension store when available; the Chromium ZIP is a store/build package, not a signed CRX installer.
+The latest release includes a **Firefox XPI installer** and a **source ZIP**. Install the XPI in Firefox; use the source archive to inspect or build the project. For Chromium browsers, install from their extension store when available; the Chromium ZIP is a store/build package, not a signed CRX installer.
 
 ## Main features
 
