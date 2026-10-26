@@ -71,6 +71,7 @@ try {
     captures[name] = await driver.findElement({ css: '.shell' }).takeScreenshot();
     await writeFile(`${output}/screenshots/${name}.png`, Buffer.from(captures[name], 'base64'));
   }
+  await capture('default-smart-organize');
   await driver.findElement({ css: '.speed-presets [data-speed="1.5"]' }).click();
   await driver.wait(async () => (await driver.findElement({ id: 'speed-value' }).getText()) === '1.5×', 5000);
   await capture('playback-speed');
@@ -118,7 +119,7 @@ try {
     if (typeof png !== 'string') throw new Error(JSON.stringify(png));
     await writeFile(`${output}/${slides[index].name}.png`, Buffer.from(png, 'base64'));
   }
-  console.log('Created icons, five original UI screenshots and three 1280x800 presentation images.');
+  console.log('Created icons, six original UI screenshots and three 1280x800 presentation images.');
 } finally {
   if (driver) await driver.quit();
   await new Promise(done => server.close(done));

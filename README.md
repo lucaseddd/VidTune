@@ -12,6 +12,16 @@ Firefox Add-ons: [VidTune](https://addons.mozilla.org/pt-BR/firefox/addon/vidtun
 - A/D/Q shortcuts work in Smart Organize, including while the volume slider or Layout list has focus. Editable number fields retain normal typing behavior.
 - **Mono audio** mixes the left and right channels and sends the result to both outputs. It is saved as a global preference and follows newly loaded videos. Like volume boost, mono processing needs a usable Web Audio path; the popup reports when a video source cannot safely be routed.
 
+## Screenshots
+
+![VidTune 0.8.4 with the default five-tool Smart Organize layout](presentation/screenshots/default-smart-organize.png)
+
+The [Firefox Add-ons listing](https://addons.mozilla.org/pt-BR/firefox/addon/vidtune/) uses these three feature images:
+
+- [Playback speed and shortcuts](presentation/01-playback-speed.png)
+- [Volume boost and audio controls](presentation/02-volume-boost.png)
+- [Smart Organize layouts](presentation/03-smart-organize.png)
+
 ## Speed controls
 
 - Adjust in 0.1× steps by default, choose a preset, enter a custom value, or reset to 1×.
