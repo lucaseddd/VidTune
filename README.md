@@ -1,17 +1,25 @@
-# VidTune - Speed, Volume & PiP
+# VidTune — Video Speed Controller & Volume Booster
 
-**A video speed controller and volume booster for Microsoft Edge, Firefox, Google Chrome, and Opera.** VidTune gives you quick control over playback speed, louder audio, mono sound, and Picture-in-Picture, with a compact popup you can customize.
+**A browser extension for video speed control, volume boost, and Picture-in-Picture.** Adjust playback from 0.1× to 16×, make quiet videos louder, and manage audio and site settings from one compact popup.
 
-[Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/vidtune-%E2%80%94-modular-control/iocecgnikgeoainkjndpejfgblgnkpmo) · [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/vidtune/) · Google Chrome (coming soon) · Opera (coming soon) · [Privacy policy](PRIVACY.md)
+<table width="100%" cellspacing="0" cellpadding="8">
+  <tr>
+    <td width="50%"><strong>Speed control</strong><br>Adjust videos from 0.1× to 16×.</td>
+    <td width="50%"><strong>Volume boost</strong><br>Boost or mute audio, switch to mono, or set volume per tab.</td>
+  </tr>
+  <tr>
+    <td width="50%"><strong>Picture-in-Picture</strong><br>Move supported videos into a floating window.</td>
+    <td width="50%"><strong>Your setup</strong><br>Choose 2, 5, or 10 controls; save site settings and use A/D shortcuts.</td>
+  </tr>
+</table>
+
+<div align="center">
+  <a href="https://microsoftedge.microsoft.com/addons/detail/vidtune-%E2%80%94-modular-control/iocecgnikgeoainkjndpejfgblgnkpmo">Microsoft Edge Add-ons</a> · <a href="https://addons.mozilla.org/en-US/firefox/addon/vidtune/">Firefox Add-ons</a> · <sub>Chrome · planned</sub> · <sub>Opera · planned</sub> · <a href="PRIVACY.md">Privacy</a>
+</div>
 
 ## Install VidTune
 
-**Recommended — fastest:** Install VidTune directly from your browser's extension store. This is the simplest option and keeps updates automatic.
-
-- [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/vidtune-%E2%80%94-modular-control/iocecgnikgeoainkjndpejfgblgnkpmo)
-- [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/vidtune/)
-- Google Chrome: coming soon.
-- Opera: coming soon.
+**Recommended:** Install directly from your browser's extension store for the quickest setup and automatic updates. VidTune is available for Microsoft Edge and Firefox.
 
 For the latest downloadable files, open the release directly:
 
