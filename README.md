@@ -1,18 +1,17 @@
 # VidTune - Speed, Volume & PiP
 
-**A video speed controller and volume booster for Firefox, Opera, Chrome, and Microsoft Edge.** VidTune gives you quick control over playback speed, louder audio, mono sound, and Picture-in-Picture, with a compact popup you can customize.
+**A video speed controller and volume booster for Microsoft Edge, Firefox, Google Chrome, and Opera.** VidTune gives you quick control over playback speed, louder audio, mono sound, and Picture-in-Picture, with a compact popup you can customize.
 
-[Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/vidtune/) · [Opera Add-ons](https://addons.opera.com/en/extensions/details/vidtune-speed-volume-pip/) · [Opera developer page](https://addons.opera.com/developer/package/308049/) · [Privacy policy](PRIVACY.md)
-
-> The Opera listing is awaiting moderation. Its public download page will work after Opera approves the extension.
+[Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/vidtune-%E2%80%94-modular-control/iocecgnikgeoainkjndpejfgblgnkpmo) · [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/vidtune/) · Google Chrome (coming soon) · Opera (coming soon) · [Privacy policy](PRIVACY.md)
 
 ## Install VidTune
 
 **Recommended — fastest:** Install VidTune directly from your browser's extension store. This is the simplest option and keeps updates automatic.
 
+- [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/vidtune-%E2%80%94-modular-control/iocecgnikgeoainkjndpejfgblgnkpmo)
 - [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/vidtune/)
-- [Opera Add-ons](https://addons.opera.com/en/extensions/details/vidtune-speed-volume-pip/) (available after review)
-- Chrome and Microsoft Edge: coming soon.
+- Google Chrome: coming soon.
+- Opera: coming soon.
 
 For the latest downloadable files, open the release directly:
 
@@ -60,7 +59,7 @@ More screenshots: [speed controls](presentation/01-playback-speed.png) · [volum
 
 ## Compatibility
 
-VidTune supports Firefox, Opera, Chrome, and Microsoft Edge. Some protected videos, restricted browser pages, or players that block audio processing may limit speed or volume controls.
+VidTune is compatible with Microsoft Edge, Google Chrome, Opera, Brave, and Vivaldi. Firefox is supported separately. Some protected videos, restricted browser pages, or players that block audio processing may limit speed or volume controls.
 
 ## Build from source
 
